@@ -25,6 +25,7 @@
 // Author: jkrachey@wisc.edu
 //*****************************************************************************
 #include "main.h"
+
 extern void hw1(void);
 
 typedef enum 
@@ -76,6 +77,7 @@ void initializeBoard(void)
   gp_timer_config_32(TIMER0_BASE, TIMER_TAMR_TAMR_1_SHOT, false, false);
   init_serial_debug(true, true);
   ft6x06_init();
+	init_pwm();
   EnableInterrupts();
 }
 void initializeHardware(void)
@@ -437,6 +439,7 @@ main(void)
 			}
 			colorIndex = nxtColorIndex;
 			noteIndex = nxtNoteIndex;
+			stop_buzz();
 		}
 		
 		if(touch_event > 0 && touch_event < 3 && noteIndex != -1){
@@ -446,6 +449,54 @@ main(void)
 				lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[noteIndex], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_RED, LCD_COLOR_BLACK);
 			}
 			// Play Sound Accordingly
+			if (nxtNoteIndex == 13) 
+			{
+				buzz(C);
+			}	
+			else if (nxtNoteIndex == 12) 
+			{
+				buzz(C_s);
+			}
+			else if (nxtNoteIndex == 11) 
+			{
+				buzz(D);
+			}
+			else if (nxtNoteIndex == 8) 
+			{
+				buzz(D_s);
+			}
+			else if (nxtNoteIndex == 9) 
+			{
+				buzz(E);
+			}
+			else if (nxtNoteIndex == 7) 
+			{
+				buzz(F);
+			}
+			else if (nxtNoteIndex == 6) 
+			{
+				buzz(F_s);
+			}
+			else if (nxtNoteIndex == 5) 
+			{
+				buzz(G);
+			}
+			else if (nxtNoteIndex == 4) 
+			{
+				buzz(G_s);
+			}
+			else if (nxtNoteIndex == 3) 
+			{
+				buzz(A);
+			}
+			else if (nxtNoteIndex == 0) 
+			{
+				buzz(A_s);
+			}
+			else if (nxtNoteIndex == 1) 
+			{
+				buzz(B);
+			}
 		}
     
     //gp_timer_wait(TIMER0_BASE, 5000000);
