@@ -1,6 +1,7 @@
 #include "pwm.h"
 
 static TIMER0_Type *pwm = (TIMER0_Type *) PWM_TIMER_BASE;
+int DUTY_CYCLE = 25000000;
 
 void init_pwm() {
 	SYSCTL->RCGCTIMER |= SYSCTL_RCGCTIMER_R1;
@@ -24,16 +25,31 @@ void init_pwm() {
 	// Configure PWM signal to not be inverted
 	pwm->CTL &= ~(TIMER_CTL_TAPWML);	
 	
+	// Initially set duty cycle to 50%
+	//set_duty_cycle(50);	
+		
 	disable_pwm();	
 };
 
 void set_duty_cycle( int duty_cycle ) {
-	
+	if (duty_cycle <= 0) {
+		DUTY_CYCLE = 10000;
+	}
+	else if (duty_cycle > 100) {
+		DUTY_CYCLE = CLOCK_FREQUENCY;
+	} 
+	else {
+		DUTY_CYCLE = (duty_cycle/100) * CLOCK_FREQUENCY;
+	}	
 };
 
 void gen_frequency( int frequency ) {
-	pwm->TAMR = 0;
+	pwm->TAPR = 0;
 	pwm->TAILR = CLOCK_FREQUENCY/frequency;
+	
+	pwm->TAPMR = 0;
+	pwm->TAMATCHR = (DUTY_CYCLE)/frequency;
+	
 	pwm->CTL |= TIMER_CTL_TAEN;
 };
 
