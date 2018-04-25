@@ -25,16 +25,16 @@
 void init_pwm(  );
 
 /******************************************************************************
- * Sets the duty cycle for the PWM
+ * Sets the duty cycle for the PWM - adjusts the volume of the sound
  *
  * Parameters:
- *  duty_cycle - int representing duty cycle, 0-100%, saturates low to 0 or high to 100
+ *  duty_cycle - int representing duty cycle, 0-100%, saturates low to nearly 0 or high to 100
  *
  *****************************************************************************/
 void set_duty_cycle( int duty_cycle );
 
 /******************************************************************************
- * Sets the frequency for the PWM, keeping the same duty cycle
+ * Sets the frequency for the PWM, keeping the same duty cycle 
  *
  * Parameters:
  *  frequency - int representing the frequency of the PWM, from 0 to 2000
