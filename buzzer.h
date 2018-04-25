@@ -3,18 +3,18 @@
 
 #include "pwm.h"
 
-#define C		523
-#define C_s		554
-#define D		587
-#define D_s		622
-#define	E		659
-#define	F		698
-#define	F_s		740
-#define	G		784
-#define	G_s		831
-#define	A		880
-#define	A_s		932
-#define	B		988
+#define C		1047
+#define C_s		1109
+#define D		1175
+#define D_s		1245
+#define	E		1319
+#define	F		1397
+#define	F_s		1480
+#define	G		1568
+#define	G_s		1661
+#define	A		1760
+#define	A_s		1865
+#define	B		1976
 
 /******************************************************************************
  * Sends PWM signal to buzzer
