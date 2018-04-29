@@ -300,6 +300,42 @@ void displayTouch(key_t key){
 	// given key, highlight the board at the pressed spot
 }
 
+// assign index-1 and index and index+1 to macro colomn locations MENU1 MENU2 MENU3
+// assign macro to initial row location MENUROW
+// index is at ascii-40
+void displayMenu(void){
+	char *string;
+	uint16_t row0; 
+	uint8_t *bitmap;
+	// get pointer to index-1 string
+	string = menuList[(index-1)%menuSize];
+	row0 = MENUROW;
+	// iterate throught the string and places at row/col using bitmap
+	for(;string != '\0';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-40]];
+		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_WHITE, LCD_COLOR_BLACK); 
+		row0 = row0-16;
+	}
+	// get pointer to index-1 string
+	string = menuList[(index)%menuSize];
+	row0 = MENUROW;
+	// iterate throught the string and places at row/col using bitmap
+	for(;string != '\0';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-40]];
+		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_BLUE, LCD_COLOR_BLACK); 
+		row0 = row0-16;
+	}
+	// get pointer to index-1 string
+	string = menuList[(index+1)%menuSize];
+	row0 = MENUROW;
+	// iterate throught the string and places at row/col using bitmap
+	for(;string != '\0';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-40]];
+		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_GREEN, LCD_COLOR_BLACK); 
+		row0 = row0-16;
+	}
+}
+
 int
 main(void)
 {
@@ -365,11 +401,18 @@ main(void)
 			switch(button_pressed){
 				case UP_B:
 					// index--;
+					menu_index = (menu_index-1)%menuSize;
 				case DOWN_B:
 					// index++;
+					menu_index = (menu_index+1)%menuSize;
 				case RIGHT_B:
 					// change mode to follow if index != 0
-					// else change mode to free
+					// else change mode to play
+					if(index == 0){
+						mode = PLAY;
+					}else{
+						mode = FOLLOW
+					}
 				default:
 					break;
 			}
