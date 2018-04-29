@@ -26,28 +26,65 @@
 //*****************************************************************************
 #include "main.h"
 
-extern void hw1(void);
+typedef enum {
+	DEBOUNCE_WAIT,
+	DEBOUNCE_ONE,
+	DEBOUNCE_TWO,
+	DEBOUNCE_PRESSED,
+} DEBOUNCE_STATUS;
 
-typedef enum 
-{
-  DEBOUNCE_ONE,
-  DEBOUNCE_1ST_ZERO,
-  DEBOUNCE_2ND_ZERO,
-  DEBOUNCE_PRESSED
-} DEBOUNCE_STATES;
+typedef enum {
+	Sil,
+	Cont,
+	An,
+	As,
+	Bn,
+	Cn,
+	Cs,
+	Dn,
+	Ds,
+	En,
+	Fn,
+	Fs,
+	Gn,
+	Gs,
+} key_t;
 
-typedef enum
-{
-	SOLID,
-	STROBE,
-	WAVE,
-	OFF
-} LED_MODE;
-//*****************************************************************************
-// Global Variables
-//*****************************************************************************
+typedef enum {
+	MENU,
+	FOLLOW,
+	PLAY,
+} mode_t;
 
+typedef enum {
+	NA,
+	UP_B,
+	DOWN_B,
+	LEFT_B,
+	RIGHT_B,
+} button_t;
 
+mode_t mode;
+key_t cur_key, nxt_key;
+button_t button_pressed;
+
+volatile bool music_beat = false;
+volatile bool game_start = false;
+volatile bool loading_led = false;
+volatile bool read_touch = false;
+volatile bool switch_detect = false;
+volatile bool buzzer_update = false;
+volatile bool joystick_read = false;
+volatile bool button_detect = false;
+volatile bool game_pause = false;
+
+// What type are the volume and pitch, set accordingly
+volatile uint8_t buzzerVolume = 50;
+volatile uint8_t buzzerPitch = 50;
+
+volatile uint8_t menu_index = 1;
+
+volatile uint16_t note_index = 0;
 //*****************************************************************************
 // 
 //*****************************************************************************
@@ -68,440 +105,369 @@ void EnableInterrupts(void)
   }
 }
 
-
-//*****************************************************************************
-//*****************************************************************************
-void initializeBoard(void)
+bool debounce_switch()
 {
-  DisableInterrupts();
-  gp_timer_config_32(TIMER0_BASE, TIMER_TAMR_TAMR_1_SHOT, false, false);
-  init_serial_debug(true, true);
-  ft6x06_init();
-	init_pwm();
-  EnableInterrupts();
+  static DEBOUNCE_STATUS state = DEBOUNCE_WAIT;
+  bool pin_logic_level = lp_io_read_pin(SW1_BIT);
+  
+  switch (state)
+  {
+    case DEBOUNCE_WAIT:
+    {
+      if(pin_logic_level){
+        state = DEBOUNCE_WAIT;
+      } else {
+        state = DEBOUNCE_ONE;
+      }
+      break;
+    }
+    case DEBOUNCE_ONE:
+    {
+      if(pin_logic_level){
+        state = DEBOUNCE_ONE;
+      } else {
+        state = DEBOUNCE_TWO;
+      }
+      break;
+    }
+    case DEBOUNCE_TWO:
+    {
+      if(pin_logic_level){
+        state = DEBOUNCE_ONE;
+      } else {
+        state = DEBOUNCE_PRESSED;
+      }
+      break;
+    }
+    case DEBOUNCE_PRESSED:
+    {
+      if(pin_logic_level){
+        state = DEBOUNCE_ONE;
+      } else {
+        state = DEBOUNCE_PRESSED;
+      }
+      break;
+    }
+    default:
+			for(;;);
+	}
+	
+	if(state == DEBOUNCE_TWO ){
+    return true;
+  } else {
+    return false;
+  }
 }
-void initializeHardware(void)
+
+void initializeHardware()
 {
+	DisableInterrupts();
+	init_serial_debug(true, true);
+	ft6x06_init();
+	mcp23017_init();
+	init_pwm();
 	
-	initialize_serial_debug();
+	gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
 	
-	//// setup lcd GPIO, config the screen, and clear it ////
 	lcd_config_gpio();
 	lcd_config_screen();
-	lcd_clear_screen(LCD_COLOR_BLACK);
+  lcd_clear_screen(LCD_COLOR_BLACK);
+	
+	lp_io_init();
+	
+	ps2_initialize_ss2();
+	initialize_adc_ss2(ADC0_BASE);
+	EnableInterrupts();
 }
 
-//*****************************************************************************
-//*****************************************************************************
-bool left_sw_debounce()
-{
-  static DEBOUNCE_STATES state_left = DEBOUNCE_ONE;
-  bool pin_logic_level = left_sw_pressed();
-  
-  switch (state_left)
-  {
-    case DEBOUNCE_ONE:
-    {
-      if(pin_logic_level){
-        state_left = DEBOUNCE_ONE;
-      } else {
-        state_left = DEBOUNCE_1ST_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_1ST_ZERO:
-    {
-      if(pin_logic_level){
-        state_left = DEBOUNCE_ONE;
-      } else {
-        state_left = DEBOUNCE_2ND_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_2ND_ZERO:
-    {
-      if(pin_logic_level){
-        state_left = DEBOUNCE_ONE;
-      } else {
-        state_left = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    case DEBOUNCE_PRESSED:
-    {
-      if(pin_logic_level){
-        state_left = DEBOUNCE_ONE;
-      } else {
-        state_left = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    default:
-			for(;;);
+void TIMTER0A_Handler(){
+	
+	if(game_pause){
+		TIMER0->ICR = TIMER_ICR_TATOCINT;
+		return;
 	}
 	
-	if(state_left == DEBOUNCE_2ND_ZERO ){
-    return true;
-  } else {
-    return false;
-  }
+	music_beat = true;
+	
+	TIMER0->ICR = TIMER_ICR_TATOCINT;
 }
 
-//*****************************************************************************
-//*****************************************************************************
-bool right_sw_debounce()
-{
-  static DEBOUNCE_STATES state_right = DEBOUNCE_ONE;
-  bool pin_logic_level = right_sw_pressed();
-  
-  switch (state_right)
-  {
-    case DEBOUNCE_ONE:
-    {
-      if(pin_logic_level){
-        state_right = DEBOUNCE_ONE;
-      } else {
-        state_right = DEBOUNCE_1ST_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_1ST_ZERO:
-    {
-      if(pin_logic_level){
-        state_right = DEBOUNCE_ONE;
-      } else {
-        state_right = DEBOUNCE_2ND_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_2ND_ZERO:
-    {
-      if(pin_logic_level){
-        state_right = DEBOUNCE_ONE;
-      } else {
-        state_right = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    case DEBOUNCE_PRESSED:
-    {
-      if(pin_logic_level){
-        state_right = DEBOUNCE_ONE;
-      } else {
-        state_right = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    default:
-			for(;;);
+void TIMER0B_Handler(){
+	
+	switch_detect = true;	
+	
+	if(game_pause){
+		TIMER0->ICR = TIMER_ICR_TBTOCINT;
+		return;
 	}
 	
-	if(state_right == DEBOUNCE_2ND_ZERO ){
-    return true;
-  } else {
-    return false;
-  }
+	read_touch = true;
+	
+	buzzer_update = true;
+	
+	TIMER0->ICR = TIMER_ICR_TBTOCINT;
 }
 
-//*****************************************************************************
-//*****************************************************************************
-bool up_sw_debounce()
-{
-  static DEBOUNCE_STATES state_up = DEBOUNCE_ONE;
-  bool pin_logic_level = up_sw_pressed();
-  
-  switch (state_up)
-  {
-    case DEBOUNCE_ONE:
-    {
-      if(pin_logic_level){
-        state_up = DEBOUNCE_ONE;
-      } else {
-        state_up = DEBOUNCE_1ST_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_1ST_ZERO:
-    {
-      if(pin_logic_level){
-        state_up = DEBOUNCE_ONE;
-      } else {
-        state_up = DEBOUNCE_2ND_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_2ND_ZERO:
-    {
-      if(pin_logic_level){
-        state_up = DEBOUNCE_ONE;
-      } else {
-        state_up = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    case DEBOUNCE_PRESSED:
-    {
-      if(pin_logic_level){
-        state_up = DEBOUNCE_ONE;
-      } else {
-        state_up = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    default:
-			for(;;);
+void ADC0SS2_Handler(){
+	
+	if(game_pause){
+		ADC0->ISC = ADC_ISC_IN2;
+		return;
 	}
 	
-	if(state_up == DEBOUNCE_2ND_ZERO ){
-    return true;
-  } else {
-    return false;
-  }
+	joystick_read = true;
+	
+	ADC0->ISC = ADC_ISC_IN2;
 }
 
-//*****************************************************************************
-//*****************************************************************************
-bool down_sw_debounce()
-{
-  static DEBOUNCE_STATES state_down = DEBOUNCE_ONE;
-  bool pin_logic_level = down_sw_pressed();
-  
-  switch (state_down)
-  {
-    case DEBOUNCE_ONE:
-    {
-      if(pin_logic_level){
-        state_down = DEBOUNCE_ONE;
-      } else {
-        state_down = DEBOUNCE_1ST_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_1ST_ZERO:
-    {
-      if(pin_logic_level){
-        state_down = DEBOUNCE_ONE;
-      } else {
-        state_down = DEBOUNCE_2ND_ZERO;
-      }
-      break;
-    }
-    case DEBOUNCE_2ND_ZERO:
-    {
-      if(pin_logic_level){
-        state_down = DEBOUNCE_ONE;
-      } else {
-        state_down = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    case DEBOUNCE_PRESSED:
-    {
-      if(pin_logic_level){
-        state_down = DEBOUNCE_ONE;
-      } else {
-        state_down = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    default:
-			for(;;);
+void GPIOF_Handler(){
+	
+	if(game_pause){
+		GPIOF->ICR = GPIO_ICR_GPIO_M;
+		return;
 	}
 	
-	if(state_down == DEBOUNCE_2ND_ZERO ){
-    return true;
-  } else {
-    return false;
-  }
+	button_detect = true;
+	GPIOF->ICR = GPIO_ICR_GPIO_M;
 }
 
-//*****************************************************************************
-//*****************************************************************************
-uint8_t check_buttons(){
-	static LED_MODE mode = OFF;
-	
-	if(left_sw_debounce()){ /*GREEN LED*/ }
-	if(down_sw_debounce()){ /*RED LED*/ }
-	if(up_sw_debounce()){ /*BLUE LED*/ }
-	if(right_sw_debounce()){ 
-		switch(mode){
-			case(OFF):
-				mode = SOLID;
-				break;
-			case(SOLID):
-				mode = STROBE;
-				break;
-			case(STROBE):
-				mode = WAVE;
-				break;
-			case(WAVE):
-				mode = OFF;
-				break;
-			default:
-				for(;;);
+void buzzer_play(){
+	// check the current key state and compare with previous state
+	// if cont then continue playing
+	// if on silent then stop playing
+	// else play the key state
+}
+
+void pitchChange(uint8_t percentage){
+	// percentage is from 0-100
+	// 50 is normal 1
+	// 0 is 1/2, 100 is 2x
+}
+
+void volumeChange(uint8_t percentage){
+	// percentage is from 0-100
+	// 50 is normal 1
+	// 0 is 1/2, 100 is 2x
+}
+
+key_t checkKey(uint16_t x, uint16_t y){
+	key_t retKey;
+	// if x is less than half row, check sharp
+		// case y for sharp and return
+	if(x<COLS/2){
+		if(y<29){
+			retKey = Sil;
+		}else if(y<59){
+			retKey = As;
+		}else if(y<95){
+			retKey = Gs;
+		}else if(y<151){
+			retKey = Fs;
+		}else if(y<212){
+			retKey = Sil;
+		}else if(y<243){
+			retKey = Ds;
+		}else if(y<289){
+			retKey = Cs;
+		}else{
+			retKey = Sil;
 		}
 	}
+	// else check standard
+		// case y for standard and return
+	else{
+		if(y<44){
+			retKey = Bn;
+		}else if(y<90){
+			retKey = An;
+		}else if(y<136){
+			retKey = Gn;
+		}else if(y<182){
+			retKey = Fn;
+		}else if(y<228){
+			retKey = En;
+		}else if(y<274){
+			retKey = Dn;
+		}else{
+			retKey = Cn;
+		}
+	}
+	
+	return retKey;
 }
 
-//*****************************************************************************
-//*****************************************************************************
-int 
+void displayTouch(key_t key){
+	// given key, highlight the board at the pressed spot
+}
+
+int
 main(void)
 {
-  uint16_t x,y;
-  uint8_t touch_event;
-  i2c_status_t td_status;
-  i2c_status_t x_status;
-  i2c_status_t y_status;
+	// set up necessary variable
+	bool setup = false;
 	
-	int colorIndex = 0;
-	int noteIndex = 0;
-	int nxtColorIndex = -1;
-	int nxtNoteIndex = -1;
+	uint8_t buttons = 0xFF;
+
+	uint16_t adc_x_val = 0;
+	uint16_t adc_y_val = 0;
+	uint8_t volumePercent = 50;
+	uint8_t pitchPercent = 50;
 	
-	//hw1_init();
-	//hw1();	
+	uint16_t x_touch = 0;
+	uint16_t y_touch = 0;
+	uint8_t touch_event = false;
+	
+	mode = MENU;
+	cur_key = Sil;
+	nxt_key = NULL;
+	// initialize the hardware
 	initializeHardware();
-  lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
-
-  initializeBoard();
-  
-  printf("\n\r");
-  printf("**************************************\n\r");
-  printf("* In Class - I2C FT6206\n\r");
-  printf("**************************************\n\r");
- 
-  while(1){
-    
-    // ADD CODE
-    // Determine how many active touch events there are.  If there are more than
-    // 0, then read the x and y coordinates and print them out to the serial debug
-    // teriminal using printf.
-		touch_event = ft6x06_read_td_status();
+	
+	printf("**************************************\n\r");
+	printf("PIANO - Project");
+	printf("By - DAN and ");
+	printf("**************************************\n\r");
+	
+	// infinite loop for game logic
+	while(1){
 		
-		if(touch_event > 0 && touch_event < 3){
-			x = ft6x06_read_x();
-			y = ft6x06_read_y();
+		// crude method of pausing a game
+		while(game_pause){
+			if(switch_detect){
+				debounce_switch();
+				switch_detect = false;
+			}
+		}
+		
+		// check if set up
+		if(!setup){
+			switch(mode){
+				case MENU:
+					// set menu index to 1
+					// display arrow/selectbox
+					// display index-1, index, index+1 with %
+					break;
+				case FOLLOW:
+					// display keyboard
+					// load song at index
+					break;
+				case PLAY:
+					// display keyboard
+					break;
+				default:
+					break;
+			}
+			setup = true;
+		}
+		// main menu
+		// horizontal orientation
+		if(mode == MENU){
+			switch(button_pressed){
+				case UP_B:
+					// index--;
+				case DOWN_B:
+					// index++;
+				case RIGHT_B:
+					// change mode to follow if index != 0
+					// else change mode to free
+				default:
+					break;
+			}
 			
-			printf("X: %d Y: %d\n\r",x,y);
+			// draw new 3 songs based on index if still menu
+			// change box color on current index if not menu
+		} 
+		// 
+		else if(mode == FOLLOW){
+			// highlight necessary part of board
+			
+			if(button_pressed == LEFT_B){
+				mode = MENU;
+				setup = false;
+				// change necessary variables
+				// key to silent
+				// menu to 1
+				// note to 0;
+				nxt_key = Sil;
+				menu_index = 1;
+				note_index = 0;
+			}
+		}
+		// play screen 
+		else{
+			// highlight necessary part of board
+			if(button_pressed == LEFT_B){
+				mode = MENU;
+				setup = false;
+				// change necessary variables
+				// key to silent
+				// menu to 1
+				nxt_key = Sil;
+				menu_index = 1;
+			}
+		}	
+		
+		if(read_touch && mode != MENU){
+			// check if screen is currently pressed and grab values
+			touch_event = ft6x06_read_td_status();
+			if(touch_event > 0 && touch_event < 3){
+				x_touch = ft6x06_read_x();
+				y_touch = ft6x06_read_y();
+				
+				nxt_key = checkKey(x_touch, y_touch);
+				displayTouch(nxt_key);
+			}
+				// check key type
+				// display pressed key location
+			read_touch = false;
 		}
 		
-		if(x>120) {
-			nxtColorIndex = 1;
-		} else {
-			nxtColorIndex = 0;
+		if(joystick_read){
+			// check adc_values
+			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
+			
+			// convert return to a 0-100 scale
+			volumePercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
+			pitchPercent = (uint8_t) 100 * (((float)adc_y_val) / 4096);
+			// change volume based on x
+			volumeChange(volumePercent);
+			// change pitch based on y
+			pitchChange(pitchPercent);
+			joystick_read = false;
 		}
 		
-		if(!nxtColorIndex) {
-			if(y<29){
-				//Nothing
-				nxtNoteIndex = -1;
-			}else if(y<59){
-				nxtNoteIndex = 0;
-			}else if(y<95){
-				nxtNoteIndex = 4;
-			}else if(y<151){
-				nxtNoteIndex = 6;
-			}else if(y<212){
-				//Nothing
-				nxtNoteIndex = -1;
-			}else if(y<243){
-				nxtNoteIndex = 8;
-			}else if(y<289){
-				nxtNoteIndex = 12;
+		if(button_detect){
+			buttons = mcp23017_read_reg(MCP23017_INTCAPB_R);
+			
+			if(!(buttons & (1 <<DIR_BTN_DOWN_PIN))){
+				button_pressed = LEFT_B;
+			}else if(!(buttons & (1 <<DIR_BTN_LEFT_PIN))){
+				button_pressed = UP_B;
+			}else if(!(buttons & (1 <<DIR_BTN_RIGHT_PIN))){
+				button_pressed = DOWN_B;
+			}else if(!(buttons & (1 <<DIR_BTN_UP_PIN))){
+				button_pressed = RIGHT_B;
 			}else{
-				//Nothing
-				 nxtNoteIndex = -1;
-			}
-		} else {
-			if(y<44){
-				nxtNoteIndex = 1;
-			}else if(y<90){
-				nxtNoteIndex = 3;
-			}else if(y<136){
-				nxtNoteIndex = 5;
-			}else if(y<182){
-				nxtNoteIndex = 7;
-			}else if(y<228){
-				nxtNoteIndex = 9;
-			}else if(y<274){
-				nxtNoteIndex = 11;
-			}else{
-				nxtNoteIndex = 13;
+				button_pressed = NA;
 			}
 		}
 		
-		if(!(touch_event > 0 && touch_event < 3) || nxtColorIndex != colorIndex || nxtNoteIndex != noteIndex){
-			if(colorIndex){
-				lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[noteIndex], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_WHITE, LCD_COLOR_WHITE);
-			} else {
-				lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[noteIndex], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
-			}
-			colorIndex = nxtColorIndex;
-			noteIndex = nxtNoteIndex;
-			stop_buzz();
+		if(switch_detect){
+			game_pause = debounce_switch();
+			switch_detect = false;
 		}
 		
-		if(touch_event > 0 && touch_event < 3 && noteIndex != -1){
-			if(colorIndex){
-				lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[noteIndex], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_WHITE);
-			} else {
-				lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[noteIndex], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_RED, LCD_COLOR_BLACK);
+		if(music_beat){
+			cur_key = nxt_key;
+			buzzer_play();
+			if(mode == FOLLOW){
+				// if beat index is greater than 0 
+					// check if previous played key state match previous key at beat index
+						// increase match index for scoring
+					// display led color accordingly
+				// highlight key at current beat index
 			}
-			// Play Sound Accordingly
-			if (nxtNoteIndex == 13) 
-			{
-				buzz(C);
-			}	
-			else if (nxtNoteIndex == 12) 
-			{
-				buzz(C_s);
-			}
-			else if (nxtNoteIndex == 11) 
-			{
-				buzz(D);
-			}
-			else if (nxtNoteIndex == 8) 
-			{
-				buzz(D_s);
-			}
-			else if (nxtNoteIndex == 9) 
-			{
-				buzz(E);
-			}
-			else if (nxtNoteIndex == 7) 
-			{
-				buzz(F);
-			}
-			else if (nxtNoteIndex == 6) 
-			{
-				buzz(F_s);
-			}
-			else if (nxtNoteIndex == 5) 
-			{
-				buzz(G);
-			}
-			else if (nxtNoteIndex == 4) 
-			{
-				buzz(G_s);
-			}
-			else if (nxtNoteIndex == 3) 
-			{
-				buzz(A);
-			}
-			else if (nxtNoteIndex == 0) 
-			{
-				buzz(A_s);
-			}
-			else if (nxtNoteIndex == 1) 
-			{
-				buzz(B);
-			}
+			music_beat = false;
 		}
-    
-    //gp_timer_wait(TIMER0_BASE, 5000000);
-		gp_timer_wait(TIMER0_BASE, 500000);
-  
-  };
-
+	}
 }
