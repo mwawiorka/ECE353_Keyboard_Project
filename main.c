@@ -244,9 +244,9 @@ void initializeHardware()
 	init_serial_debug(true, true);
 	//ft6x06_init();
 	mcp23017_init();
-	//init_pwm();
+	init_pwm();
 	
-	//gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
+	gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
 	
 	lcd_config_gpio();
 	lcd_config_screen();
@@ -259,6 +259,7 @@ void initializeHardware()
 	EnableInterrupts();
 }
 
+// used for the FOLLOW mode
 void TIMER0A_Handler(){
 	
 	if(game_pause){
@@ -311,10 +312,53 @@ void GPIOF_Handler(){
 }
 
 void buzzer_play(){
-	// check the current key state and compare with previous state
+	// check the current key state
 	// if cont then continue playing
 	// if on silent then stop playing
 	// else play the key state
+	switch(cur_key){
+		case Sil:
+			stop_buzz();
+			break;
+		case An:
+			buzz(A);
+			break;
+		case As:
+			buzz(A_s);
+			break;
+		case Bn:
+			buzz(B);
+			break;
+		case Cn:
+			buzz(C);
+			break;
+		case Cs:
+			buzz(C_s);
+			break;
+		case Dn:
+			buzz(D);
+			break;
+		case Ds:
+			buzz(D_s);
+			break;
+		case En:
+			buzz(E);
+			break;
+		case Fn:
+			buzz(F);
+			break;
+		case Fs:
+			buzz(F_s);
+			break;
+		case Gn:
+			buzz(G);
+			break;
+		case Gs:
+			buzz(G_s);
+			break;
+		default:
+			break;
+	}
 }
 
 void pitchChange(uint8_t percentage){
@@ -375,8 +419,71 @@ key_t checkKey(uint16_t x, uint16_t y){
 	return retKey;
 }
 
+uint16_t getkeyboardLocation(key_t key){
+	switch(key){
+		case As:
+			return As_Loc;
+			break;
+		case Gs:
+			return Gs_Loc;
+			break;
+		case Fs:
+			return Fs_Loc;
+			break;
+		case Ds:
+			return Ds_Loc;
+			break;
+		case Cs:
+			return Cs_Loc;
+			break;
+		case An:
+			return A_Loc;
+			break;
+		case Bn:
+			return B_Loc;
+			break;
+		case Cn:
+			return C_Loc;
+			break;
+		case Dn:
+			return D_Loc;
+			break;
+		case En:
+			return E_Loc;
+			break;
+		case Fn:
+			return F_Loc;
+			break;
+		case Gn:
+			return G_Loc;
+			break;
+		default:
+			for(;;)
+			break;
+	}
+	
+	return NULL;
+}
+
 void displayTouch(key_t key){
 	// given key, highlight the board at the pressed spot
+	
+	if(cur_key == As || cur_key == Gs || cur_key == Fs || cur_key == Ds || cur_key == Cs){
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
+	}else if(cur_key == An || cur_key == Bn || cur_key == Cn || cur_key == Dn || cur_key == En || cur_key == Fn || cur_key == Gn){
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_WHITE, LCD_COLOR_WHITE);
+	}else{
+	
+	}
+	
+	if(key == As || key == Gs || key == Fs || key == Ds || key == Cs){
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_BLACK);
+	}else if(key == An || key == Bn || key == Cn || key == Dn || key == En || key == Fn || key == Gn){
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_WHITE);
+	}else{
+	
+	}
+	
 }
 
 // assign index-1 and index and index+1 to macro colomn locations MENU1 MENU2 MENU3
@@ -558,12 +665,30 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
-				nxt_key = checkKey(x_touch, y_touch);
+				nxt_key = checkKey(x_touch, y_touch); // used to detect change in key for score
 				displayTouch(nxt_key);
+			}else{
+				nxt_key = Sil; // used to detect change in key for score
 			}
 				// check key type
 				// display pressed key location
 			read_touch = false;
+		}
+		
+		if(buzzer_update){
+			cur_key = nxt_key; // used to make continuous sounds 
+			buzzer_play();
+			
+			if(music_beat && mode == FOLLOW){
+				// if beat index is greater than 0 
+					// check if previous played key state match previous key at beat index
+						// increase match index for scoring
+					// display led color accordingly
+				// highlight key at current beat index	
+				music_beat = false;
+			}
+			
+			buzzer_update = false;
 		}
 		
 		if(joystick_read){
@@ -603,19 +728,6 @@ main(void)
 		if(switch_detect){
 			game_pause = debounce_switch();
 			switch_detect = false;
-		}
-		
-		if(music_beat){
-			cur_key = nxt_key;
-			buzzer_play();
-			if(mode == FOLLOW){
-				// if beat index is greater than 0 
-					// check if previous played key state match previous key at beat index
-						// increase match index for scoring
-					// display led color accordingly
-				// highlight key at current beat index
-			}
-			music_beat = false;
 		}
 	}
 }
