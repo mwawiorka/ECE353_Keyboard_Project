@@ -34,23 +34,6 @@ typedef enum {
 } DEBOUNCE_STATUS;
 
 typedef enum {
-	Sil,
-	Cont,
-	An,
-	As,
-	Bn,
-	Cn,
-	Cs,
-	Dn,
-	Ds,
-	En,
-	Fn,
-	Fs,
-	Gn,
-	Gs,
-} key_t;
-
-typedef enum {
 	MENU,
 	FOLLOW,
 	PLAY,
@@ -560,6 +543,10 @@ main(void)
 	mode = MENU;
 	cur_key = Sil;
 	nxt_key = NULL;
+	
+	uint16_t songIndex = 0;
+	bool songOver = false;
+	
 	// initialize the hardware
 	initializeHardware();
 	
@@ -703,6 +690,13 @@ main(void)
 						// increase match index for scoring
 					// display led color accordingly
 				// highlight key at current beat index	
+				if (maryHadALittleLamb[songIndex] == End) {
+					songOver = true;
+				}	else {
+					displayKeytoPlay(maryHadALittleLamb[songIndex]);
+					songIndex++;
+				}	
+				
 				music_beat = false;
 			}
 			
