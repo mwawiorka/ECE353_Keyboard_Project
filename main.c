@@ -261,13 +261,20 @@ void initializeHardware()
 
 // used for the FOLLOW mode
 void TIMER0A_Handler(){
+	static uint8_t beatCount = 0;
 	
 	if(game_pause){
 		TIMER0->ICR = TIMER_ICR_TATOCINT;
 		return;
 	}
 	
-	music_beat = true;
+	beatCount++;
+	
+	// 15 * 10ms have passed -> 1/16 note at 100BPM
+	if (beatCount == 15) {	
+		music_beat = true;
+		beatCount = 0;
+	}
 	
 	TIMER0->ICR = TIMER_ICR_TATOCINT;
 }
@@ -465,21 +472,26 @@ uint16_t getkeyboardLocation(key_t key){
 	return NULL;
 }
 
-void displayTouch(key_t key){
+void displayTouch(){
 	// given key, highlight the board at the pressed spot
 	
 	if(cur_key == As || cur_key == Gs || cur_key == Fs || cur_key == Ds || cur_key == Cs){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
+			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_YELLOW, LCD_COLOR_BLACK);
 	}else if(cur_key == An || cur_key == Bn || cur_key == Cn || cur_key == Dn || cur_key == En || cur_key == Fn || cur_key == Gn){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_WHITE, LCD_COLOR_WHITE);
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_YELLOW, LCD_COLOR_WHITE);
 	}else{
 	
 	}
 	
+}
+
+void displayKeytoPlay(key_t key){
+	// given key, highlight the board at the pressed spot
+	
 	if(key == As || key == Gs || key == Fs || key == Ds || key == Cs){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_BLACK);
+			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_RED, LCD_COLOR_BLACK);
 	}else if(key == An || key == Bn || key == Cn || key == Dn || key == En || key == Fn || key == Gn){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, getkeyboardLocation(cur_key), KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_WHITE);
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_WHITE);
 	}else{
 	
 	}
@@ -626,7 +638,9 @@ main(void)
 			// draw new 3 songs based on index if still menu
 			// change box color on current index if not menu
 		} 
-		// 
+		
+		
+		// PLAY ALONG MODE
 		else if(mode == FOLLOW){
 			// highlight necessary part of board
 			
@@ -643,7 +657,8 @@ main(void)
 				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
 		}
-		// play screen 
+		
+		// FREE PLAY 
 		else{
 			// highlight necessary part of board
 			if(button_pressed == LEFT_B){
@@ -656,7 +671,10 @@ main(void)
 				menu_index = 1;
 				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
+		
 		}	
+		
+		
 		
 		if(read_touch && mode != MENU){
 			// check if screen is currently pressed and grab values
@@ -666,7 +684,7 @@ main(void)
 				y_touch = ft6x06_read_y();
 				
 				nxt_key = checkKey(x_touch, y_touch); // used to detect change in key for score
-				displayTouch(nxt_key);
+				displayTouch();
 			}else{
 				nxt_key = Sil; // used to detect change in key for score
 			}
