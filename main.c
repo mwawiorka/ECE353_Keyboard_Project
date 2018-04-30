@@ -48,7 +48,7 @@ typedef enum {
 } button_t;
 
 mode_t mode;
-key_t cur_key, nxt_key;
+key_t cur_key;
 button_t button_pressed;
 
 volatile bool music_beat = false;
@@ -455,13 +455,19 @@ uint16_t getkeyboardLocation(key_t key){
 	return NULL;
 }
 
-void displayTouch(){
+void displayTouch(bool clear){
 	// given key, highlight the board at the pressed spot
+	uint16_t fdark = LCD_COLOR_RED;
+	uint16_t flight = LCD_COLOR_RED;
+	if(clear){
+		fdark = LCD_COLOR_BLACK;
+		flight = LCD_COLOR_BLACK;
+	}
 	
 	if(cur_key == As || cur_key == Gs || cur_key == Fs || cur_key == Ds || cur_key == Cs){
-			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_YELLOW, LCD_COLOR_BLACK);
+			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, fdark, LCD_COLOR_BLACK);
 	}else if(cur_key == An || cur_key == Bn || cur_key == Cn || cur_key == Dn || cur_key == En || cur_key == Fn || cur_key == Gn){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_YELLOW, LCD_COLOR_WHITE);
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, flight, LCD_COLOR_WHITE);
 	}else{
 	
 	}
@@ -527,7 +533,7 @@ main(void)
 {
 	// set up necessary variable
 	bool setup = false;
-	
+	uint8_t debounce_cnt = 0;
 	uint8_t buttons = 0xFF;
 	uint8_t temp;
 
@@ -542,7 +548,6 @@ main(void)
 	
 	mode = MENU;
 	cur_key = Sil;
-	nxt_key = NULL;
 	// initialize the hardware
 	initializeHardware();
 	
@@ -557,9 +562,16 @@ main(void)
 		// crude method of pausing a game
 		while(game_pause){
 			if(switch_detect){
-				debounce_switch();
 				switch_detect = false;
-			}
+				if(!lp_io_read_pin(SW1_BIT)){
+					debounce_cnt++;
+					if(debounce_cnt == 5){
+						game_pause = false;
+					}
+				} else {
+					debounce_cnt = 0;
+				}
+		}
 		}
 		
 		// check if set up
@@ -634,7 +646,7 @@ main(void)
 				// key to silent
 				// menu to 1
 				// note to 0;
-				nxt_key = Sil;
+				cur_key = Sil;
 				menu_index = 1;
 				note_index = 0;
 				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
@@ -650,7 +662,7 @@ main(void)
 				// change necessary variables
 				// key to silent
 				// menu to 1
-				nxt_key = Sil;
+				cur_key = Sil;
 				menu_index = 1;
 				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
@@ -666,10 +678,12 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
-				nxt_key = checkKey(x_touch, y_touch); // used to detect change in key for score
-				displayTouch();
+				displayTouch(true);
+				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score
+				displayTouch(false);
 			}else{
-				nxt_key = Sil; // used to detect change in key for score
+				displayTouch(true);
+				cur_key = Sil; // used to detect change in key for score
 			}
 				// check key type
 				// display pressed key location
@@ -677,7 +691,6 @@ main(void)
 		}
 		
 		if(buzzer_update){
-			cur_key = nxt_key; // used to make continuous sounds 
 			buzzer_play();
 			
 			if(music_beat && mode == FOLLOW){
@@ -727,8 +740,15 @@ main(void)
 		}
 		
 		if(switch_detect){
-			game_pause = debounce_switch();
 			switch_detect = false;
+			if(!lp_io_read_pin(SW1_BIT)){
+				debounce_cnt++;
+				if(debounce_cnt == 5){
+					game_pause = true;
+				}
+			} else {
+				debounce_cnt = 0;
+			}
 		}
 	}
 }
