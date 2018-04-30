@@ -534,8 +534,11 @@ main(void)
 	// set up necessary variable
 	bool setup = false;
 	
+	bool songOver = false;
+	uint16_t songIndex = 0;
+	
+	uint8_t debounce_cnt = 0;
 	uint8_t buttons = 0xFF;
-	uint8_t temp;
 
 	uint16_t adc_x_val = 0;
 	uint16_t adc_y_val = 0;
@@ -549,8 +552,6 @@ main(void)
 	mode = MENU;
 	cur_key = Sil;
 	
-	uint16_t songIndex = 0;
-	bool songOver = false;
 	
 	// initialize the hardware
 	initializeHardware();
@@ -562,16 +563,22 @@ main(void)
 	
 	// infinite loop for game logic
 	while(1){
-		temp = mcp23017_read_reg(MCP23017_INTCAPB_R);
 		// crude method of pausing a game
-		/*
+		
 		while(game_pause){
 			if(switch_detect){
-				game_pause = !debounce_switch();
 				switch_detect = false;
+				if((GPIOF->DATA & SW1_M) == 0){
+					debounce_cnt++;
+					if(debounce_cnt == 5){
+						game_pause = true;
+					}
+				} else {
+					debounce_cnt = 0;
+				}
 			}
 		}
-		*/
+		
 		// check if set up
 		if(!setup){
 			switch(mode){
@@ -746,6 +753,18 @@ main(void)
 		if(switch_detect){
 			game_pause = debounce_switch();
 			switch_detect = false;
+		}
+
+		if(switch_detect){
+			switch_detect = false;
+			if((GPIOF->DATA & SW1_M) == 0){
+				debounce_cnt++;
+				if(debounce_cnt == 5){
+					game_pause = true;
+				}
+			} else {
+				debounce_cnt = 0;
+			}
 		}
 	}
 }
