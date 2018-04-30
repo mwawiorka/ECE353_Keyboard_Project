@@ -13,6 +13,19 @@
 #define					KEYBOARD_BLACK_CENTER		61
 #define					KEYBOARD_WHITE_CENTER		180
 
+#define					A_Loc		3
+#define					B_Loc		1
+#define					C_Loc		13
+#define					D_Loc		11
+#define					E_Loc		9
+#define					F_Loc		7
+#define					G_Loc		5
+#define					As_Loc		0
+#define					Gs_Loc		4
+#define					Fs_Loc		6
+#define					Ds_Loc		8
+#define					Cs_Loc		12
+
 extern const uint8_t keyboardBitmap[];
 extern const uint8_t keyboardBitmapWhite[];
 extern const uint8_t keyboardBitmapBlack[];
