@@ -82,9 +82,17 @@ volatile bool game_pause = false;
 volatile uint8_t buzzerVolume = 50;
 volatile uint8_t buzzerPitch = 50;
 
-volatile uint8_t menu_index = 1;
+volatile int menu_index = 1;
 
 volatile uint16_t note_index = 0;
+
+char *menuList[] = {
+	"Free Play/",
+	"Mary n Lamb/",
+	"Freedom Song/",
+};
+
+int menuSize = 3;
 //*****************************************************************************
 // 
 //*****************************************************************************
@@ -159,15 +167,86 @@ bool debounce_switch()
   }
 }
 
+bool debounce_button()
+{
+  static DEBOUNCE_STATUS status = DEBOUNCE_WAIT;
+	static uint8_t detect_button;
+  uint8_t button_detect = mcp23017_read_reg(MCP23017_INTCAPB_R);
+  
+  switch (status)
+  {
+    case DEBOUNCE_WAIT:
+    {
+      if(button_detect != 0x0F && detect_button == button_detect){
+        status = DEBOUNCE_ONE;
+      } else {
+				detect_button = button_detect;
+        status = DEBOUNCE_WAIT;
+      }
+      break;
+    }
+    case DEBOUNCE_ONE:
+    {
+      if(button_detect != 0x0F && detect_button == button_detect){
+        status = DEBOUNCE_TWO;
+      } else {
+				detect_button = 0xFF;
+        status = DEBOUNCE_ONE;
+      }
+      break;
+    }
+    case DEBOUNCE_TWO:
+    {
+      if(button_detect != 0x0F && detect_button == button_detect){
+        status = DEBOUNCE_PRESSED;
+      } else {
+				detect_button = 0xFF;
+        status = DEBOUNCE_ONE;
+      }
+      break;
+    }
+    case DEBOUNCE_PRESSED:
+    {
+      if(button_detect != 0x0F && detect_button == button_detect){
+        status = DEBOUNCE_PRESSED;
+      } else {
+				detect_button = 0xFF;
+        status = DEBOUNCE_ONE;
+      }
+      break;
+    }
+    default:
+			for(;;);
+	}
+	
+	if(status == DEBOUNCE_TWO ){
+		if(!(detect_button & (1 <<DIR_BTN_DOWN_PIN))){
+			button_pressed = LEFT_B;
+		}else if(!(detect_button & (1 <<DIR_BTN_LEFT_PIN))){
+			button_pressed = UP_B;
+		}else if(!(detect_button & (1 <<DIR_BTN_RIGHT_PIN))){
+			button_pressed = DOWN_B;
+		}else if(!(detect_button & (1 <<DIR_BTN_UP_PIN))){
+			button_pressed = RIGHT_B;
+		}else{
+			button_pressed = NA;
+		}
+    return true;
+  } else {
+		button_pressed = NA;
+    return false;
+  }
+}
+
 void initializeHardware()
 {
 	DisableInterrupts();
 	init_serial_debug(true, true);
-	ft6x06_init();
+	//ft6x06_init();
 	mcp23017_init();
-	init_pwm();
+	//init_pwm();
 	
-	gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
+	//gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
 	
 	lcd_config_gpio();
 	lcd_config_screen();
@@ -175,12 +254,12 @@ void initializeHardware()
 	
 	lp_io_init();
 	
-	ps2_initialize_ss2();
-	initialize_adc_ss2(ADC0_BASE);
+	//ps2_initialize_ss2();
+	//initialize_adc_ss2(ADC0_BASE);
 	EnableInterrupts();
 }
 
-void TIMTER0A_Handler(){
+void TIMER0A_Handler(){
 	
 	if(game_pause){
 		TIMER0->ICR = TIMER_ICR_TATOCINT;
@@ -305,33 +384,38 @@ void displayTouch(key_t key){
 // index is at ascii-40
 void displayMenu(void){
 	char *string;
+	char temp;
+	uint16_t redirect;
 	uint16_t row0; 
-	uint8_t *bitmap;
+	const uint8_t *bitmap;
 	// get pointer to index-1 string
-	string = menuList[(index-1)%menuSize];
+	string = menuList[(menu_index == 0) ? menuSize-1: menu_index-1];
 	row0 = MENUROW;
 	// iterate throught the string and places at row/col using bitmap
-	for(;string != '\0';string++){
-		bitmap = &letterBitmaps[letterRedirect[*string-40]];
+	lcd_draw_image(MENU1, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
+	for(;*string != '/';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-32]];
 		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_WHITE, LCD_COLOR_BLACK); 
 		row0 = row0-16;
 	}
 	// get pointer to index-1 string
-	string = menuList[(index)%menuSize];
+	string = menuList[(menu_index)%menuSize];
 	row0 = MENUROW;
 	// iterate throught the string and places at row/col using bitmap
-	for(;string != '\0';string++){
-		bitmap = &letterBitmaps[letterRedirect[*string-40]];
-		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_BLUE, LCD_COLOR_BLACK); 
+	lcd_draw_image(MENU2, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_ORANGE, LCD_COLOR_BLACK);
+	for(;*string != '/';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-32]];
+		lcd_draw_image(MENU2, 16, row0, 16, bitmap, LCD_COLOR_BLUE, LCD_COLOR_BLACK); 
 		row0 = row0-16;
 	}
 	// get pointer to index-1 string
-	string = menuList[(index+1)%menuSize];
+	string = menuList[(menu_index+1)%menuSize];
 	row0 = MENUROW;
 	// iterate throught the string and places at row/col using bitmap
-	for(;string != '\0';string++){
-		bitmap = &letterBitmaps[letterRedirect[*string-40]];
-		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_GREEN, LCD_COLOR_BLACK); 
+	lcd_draw_image(MENU3, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
+	for(;*string != '/';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-32]];
+		lcd_draw_image(MENU3, 16, row0, 16, bitmap, LCD_COLOR_GREEN, LCD_COLOR_BLACK); 
 		row0 = row0-16;
 	}
 }
@@ -343,6 +427,7 @@ main(void)
 	bool setup = false;
 	
 	uint8_t buttons = 0xFF;
+	uint8_t temp;
 
 	uint16_t adc_x_val = 0;
 	uint16_t adc_y_val = 0;
@@ -366,7 +451,7 @@ main(void)
 	
 	// infinite loop for game logic
 	while(1){
-		
+		temp = mcp23017_read_reg(MCP23017_INTCAPB_R);
 		// crude method of pausing a game
 		while(game_pause){
 			if(switch_detect){
@@ -380,8 +465,11 @@ main(void)
 			switch(mode){
 				case MENU:
 					// set menu index to 1
+					menu_index = 1;
 					// display arrow/selectbox
+					lcd_draw_image(COLS/2, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_ORANGE, LCD_COLOR_BLACK);
 					// display index-1, index, index+1 with %
+					displayMenu();
 					break;
 				case FOLLOW:
 					// display keyboard
@@ -400,19 +488,30 @@ main(void)
 		if(mode == MENU){
 			switch(button_pressed){
 				case UP_B:
-					// index--;
-					menu_index = (menu_index-1)%menuSize;
+					menu_index--;
+					if(menu_index == -1){
+						menu_index = menuSize-1;
+					}
+					displayMenu();
+					button_pressed = NA;
+					break;
 				case DOWN_B:
-					// index++;
-					menu_index = (menu_index+1)%menuSize;
+					menu_index = (menu_index + 1)%menuSize;
+					displayMenu();
+					button_pressed = NA;
+					break;
 				case RIGHT_B:
 					// change mode to follow if index != 0
-					// else change mode to play
-					if(index == 0){
+					// else change mode to free
+					if(menu_index == 0){
 						mode = PLAY;
+						lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 					}else{
-						mode = FOLLOW
+						mode = FOLLOW;
+						lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 					}
+					button_pressed = NA;
+					break;
 				default:
 					break;
 			}
@@ -434,6 +533,7 @@ main(void)
 				nxt_key = Sil;
 				menu_index = 1;
 				note_index = 0;
+				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
 		}
 		// play screen 
@@ -447,6 +547,7 @@ main(void)
 				// menu to 1
 				nxt_key = Sil;
 				menu_index = 1;
+				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
 		}	
 		
@@ -480,6 +581,8 @@ main(void)
 		}
 		
 		if(button_detect){
+			//debounce_button();
+			
 			buttons = mcp23017_read_reg(MCP23017_INTCAPB_R);
 			
 			if(!(buttons & (1 <<DIR_BTN_DOWN_PIN))){
@@ -493,6 +596,8 @@ main(void)
 			}else{
 				button_pressed = NA;
 			}
+			
+			button_detect = false;
 		}
 		
 		if(switch_detect){
