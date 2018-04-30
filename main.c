@@ -96,136 +96,11 @@ void EnableInterrupts(void)
   }
 }
 
-bool debounce_switch()
-{
-  static DEBOUNCE_STATUS state = DEBOUNCE_WAIT;
-  bool pin_logic_level = lp_io_read_pin(SW1_BIT);
-  
-  switch (state)
-  {
-    case DEBOUNCE_WAIT:
-    {
-      if(pin_logic_level){
-        state = DEBOUNCE_WAIT;
-      } else {
-        state = DEBOUNCE_ONE;
-      }
-      break;
-    }
-    case DEBOUNCE_ONE:
-    {
-      if(pin_logic_level){
-        state = DEBOUNCE_ONE;
-      } else {
-        state = DEBOUNCE_TWO;
-      }
-      break;
-    }
-    case DEBOUNCE_TWO:
-    {
-      if(pin_logic_level){
-        state = DEBOUNCE_ONE;
-      } else {
-        state = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    case DEBOUNCE_PRESSED:
-    {
-      if(pin_logic_level){
-        state = DEBOUNCE_ONE;
-      } else {
-        state = DEBOUNCE_PRESSED;
-      }
-      break;
-    }
-    default:
-			for(;;);
-	}
-	
-	if(state == DEBOUNCE_TWO ){
-    return true;
-  } else {
-    return false;
-  }
-}
-
-bool debounce_button()
-{
-  static DEBOUNCE_STATUS status = DEBOUNCE_WAIT;
-	static uint8_t detect_button;
-  uint8_t button_detect = mcp23017_read_reg(MCP23017_INTCAPB_R);
-  
-  switch (status)
-  {
-    case DEBOUNCE_WAIT:
-    {
-      if(button_detect != 0x0F && detect_button == button_detect){
-        status = DEBOUNCE_ONE;
-      } else {
-				detect_button = button_detect;
-        status = DEBOUNCE_WAIT;
-      }
-      break;
-    }
-    case DEBOUNCE_ONE:
-    {
-      if(button_detect != 0x0F && detect_button == button_detect){
-        status = DEBOUNCE_TWO;
-      } else {
-				detect_button = 0xFF;
-        status = DEBOUNCE_ONE;
-      }
-      break;
-    }
-    case DEBOUNCE_TWO:
-    {
-      if(button_detect != 0x0F && detect_button == button_detect){
-        status = DEBOUNCE_PRESSED;
-      } else {
-				detect_button = 0xFF;
-        status = DEBOUNCE_ONE;
-      }
-      break;
-    }
-    case DEBOUNCE_PRESSED:
-    {
-      if(button_detect != 0x0F && detect_button == button_detect){
-        status = DEBOUNCE_PRESSED;
-      } else {
-				detect_button = 0xFF;
-        status = DEBOUNCE_ONE;
-      }
-      break;
-    }
-    default:
-			for(;;);
-	}
-	
-	if(status == DEBOUNCE_TWO ){
-		if(!(detect_button & (1 <<DIR_BTN_DOWN_PIN))){
-			button_pressed = LEFT_B;
-		}else if(!(detect_button & (1 <<DIR_BTN_LEFT_PIN))){
-			button_pressed = UP_B;
-		}else if(!(detect_button & (1 <<DIR_BTN_RIGHT_PIN))){
-			button_pressed = DOWN_B;
-		}else if(!(detect_button & (1 <<DIR_BTN_UP_PIN))){
-			button_pressed = RIGHT_B;
-		}else{
-			button_pressed = NA;
-		}
-    return true;
-  } else {
-		button_pressed = NA;
-    return false;
-  }
-}
-
 void initializeHardware()
 {
 	DisableInterrupts();
 	init_serial_debug(true, true);
-	//ft6x06_init();
+	ft6x06_init();
 	mcp23017_init();
 	init_pwm();
 	
@@ -461,7 +336,7 @@ void displayTouch(bool clear){
 	uint16_t flight = LCD_COLOR_RED;
 	if(clear){
 		fdark = LCD_COLOR_BLACK;
-		flight = LCD_COLOR_BLACK;
+		flight = LCD_COLOR_WHITE;
 	}
 	
 	if(cur_key == As || cur_key == Gs || cur_key == Fs || cur_key == Ds || cur_key == Cs){
@@ -571,7 +446,7 @@ main(void)
 				} else {
 					debounce_cnt = 0;
 				}
-		}
+			}
 		}
 		
 		// check if set up
