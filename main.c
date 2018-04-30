@@ -72,7 +72,7 @@ volatile uint16_t note_index = 0;
 char *menuList[] = {
 	"Free Play/",
 	"Mary n Lamb/",
-	"Freedom Song/",
+	"Pokemon Theme/",
 };
 
 int menuSize = 3;
@@ -349,13 +349,19 @@ void displayTouch(bool clear){
 	
 }
 
-void displayKeytoPlay(key_t key){
+void displayKeytoPlay(key_t key, bool clear){
 	// given key, highlight the board at the pressed spot
+	uint16_t fdark = LCD_COLOR_RED;
+	uint16_t flight = LCD_COLOR_RED;
+	if(clear){
+		fdark = LCD_COLOR_BLACK;
+		flight = LCD_COLOR_WHITE;
+	}
 	
 	if(key == As || key == Gs || key == Fs || key == Ds || key == Cs){
-			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, LCD_COLOR_RED, LCD_COLOR_BLACK);
+			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, fdark, LCD_COLOR_BLACK);
 	}else if(key == An || key == Bn || key == Cn || key == Dn || key == En || key == Fn || key == Gn){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, LCD_COLOR_RED, LCD_COLOR_WHITE);
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, flight, LCD_COLOR_WHITE);
 	}else{
 	
 	}
@@ -407,10 +413,15 @@ int
 main(void)
 {
 	// set up necessary variable
+	bool songOver;
+	uint16_t songIndex;
+	const key_t* song;
+	uint8_t necessary;
+	key_t last_key = Sil;
+	
 	bool setup = false;
 	uint8_t debounce_cnt = 0;
 	uint8_t buttons = 0xFF;
-	uint8_t temp;
 
 	uint16_t adc_x_val = 0;
 	uint16_t adc_y_val = 0;
@@ -433,8 +444,8 @@ main(void)
 	
 	// infinite loop for game logic
 	while(1){
-		temp = mcp23017_read_reg(MCP23017_INTCAPB_R);
 		// crude method of pausing a game
+		/*
 		while(game_pause){
 			if(switch_detect){
 				switch_detect = false;
@@ -448,7 +459,8 @@ main(void)
 				}
 			}
 		}
-		
+		*/
+		necessary = mcp23017_read_reg(MCP23017_INTCAPB_R);
 		// check if set up
 		if(!setup){
 			switch(mode){
@@ -462,7 +474,7 @@ main(void)
 					break;
 				case FOLLOW:
 					// display keyboard
-					// load song at index
+					// load song at index		
 					break;
 				case PLAY:
 					// display keyboard
@@ -497,6 +509,18 @@ main(void)
 						lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 					}else{
 						mode = FOLLOW;
+						songOver = false;
+						songIndex = 0;
+						switch (menu_index) {
+							case 1:
+								song = maryHadALittleLamb;
+								break;
+							case 2:
+								song = pokemonTheme;
+								break;
+							default:
+								break;
+						}
 						lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
 					}
 					button_pressed = NA;
@@ -573,7 +597,25 @@ main(void)
 					// check if previous played key state match previous key at beat index
 						// increase match index for scoring
 					// display led color accordingly
-				// highlight key at current beat index	
+				// highlight key at current beat index
+				if (songOver) {
+					displayKeytoPlay(last_key, true);
+				}	
+				
+				if (song[songIndex] == End) {
+					songOver = true;
+				} else if (	song[songIndex] == Cont ) {						
+					songIndex++;	
+				}	else {
+					if (last_key != song[songIndex]) {
+						displayKeytoPlay(last_key, true);
+					}	
+					last_key = song[songIndex];	
+					displayKeytoPlay(song[songIndex], true);	
+					displayKeytoPlay(song[songIndex], false);							
+					songIndex++;
+				}	
+				
 				music_beat = false;
 			}
 			
@@ -614,6 +656,7 @@ main(void)
 			button_detect = false;
 		}
 		
+		/*
 		if(switch_detect){
 			switch_detect = false;
 			if(!lp_io_read_pin(SW1_BIT)){
@@ -625,5 +668,7 @@ main(void)
 				debounce_cnt = 0;
 			}
 		}
+		*/
+		
 	}
 }
