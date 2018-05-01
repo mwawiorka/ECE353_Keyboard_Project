@@ -64,6 +64,8 @@ volatile bool game_pause = false;
 // What type are the volume and pitch, set accordingly
 volatile uint8_t buzzerVolume = 50;
 volatile uint8_t buzzerPitch = 50;
+volatile uint8_t pitchMultiplier = 1;
+volatile uint8_t volumeMultiplier = 1;
 
 volatile int menu_index = 1;
 
@@ -74,6 +76,8 @@ char *menuList[] = {
 	"Mary n Lamb/",
 	"Pokemon Theme/",
 };
+
+char *scoreBoard = "Score			  High Score/";
 
 int menuSize = 3;
 //*****************************************************************************
@@ -112,8 +116,8 @@ void initializeHardware()
 	
 	lp_io_init();
 	
-	//ps2_initialize_ss2();
-	//initialize_adc_ss2(ADC0_BASE);
+	ps2_initialize_ss2();
+	initialize_adc_ss2(ADC0_BASE);
 	EnableInterrupts();
 }
 
@@ -128,8 +132,14 @@ void TIMER0A_Handler(){
 	
 	beatCount++;
 	
-	// 15 * 10ms have passed -> 1/16 note at 100BPM
+	/* 15 * 10ms have passed -> 1/16 note at 100BPM
 	if (beatCount == 15) {	
+		music_beat = true;
+		beatCount = 0;
+	}
+	*/
+	// 18.75 * 10ms have passed -> 1/16 note at 80BPM
+	if (beatCount == 19) {	
 		music_beat = true;
 		beatCount = 0;
 	}
@@ -186,40 +196,112 @@ void buzzer_play(){
 			stop_buzz();
 			break;
 		case An:
-			buzz(A);
+			if (pitchMultiplier == 2) {
+				buzz(A*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(A/2);
+			} else {		
+				buzz(A);
+			}	
 			break;
 		case As:
-			buzz(A_s);
+			if (pitchMultiplier == 2) {
+				buzz(A_s*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(A_s/2);
+			} else {
+				buzz(A_s);
+			}	
 			break;
 		case Bn:
-			buzz(B);
+			if (pitchMultiplier == 2) {
+				buzz(B*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(B/2);
+			} else {
+				buzz(B);
+			}	
 			break;
 		case Cn:
-			buzz(C);
+			if (pitchMultiplier == 2) {
+				buzz(C*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(C/2);
+			} else {
+				buzz(C);
+			}	
 			break;
 		case Cs:
-			buzz(C_s);
+			if (pitchMultiplier == 2) {
+				buzz(C_s*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(C_s/2);
+			} else {
+				buzz(C_s);
+			}	
 			break;
 		case Dn:
-			buzz(D);
+			if (pitchMultiplier == 2) {
+				buzz(D*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(D/2);
+			} else {
+				buzz(D);
+			}
 			break;
 		case Ds:
-			buzz(D_s);
+			if (pitchMultiplier == 2) {
+				buzz(D_s*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(D_s/2);
+			} else {
+				buzz(D_s);
+			}	
 			break;
 		case En:
-			buzz(E);
+			if (pitchMultiplier == 2) {
+				buzz(E*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(E/2);
+			} else {
+				buzz(E);
+			}	
 			break;
 		case Fn:
-			buzz(F);
+			if (pitchMultiplier == 2) {
+				buzz(F*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(F/2);
+			} else {
+				buzz(F);
+			}
 			break;
 		case Fs:
-			buzz(F_s);
+			if (pitchMultiplier == 2) {
+				buzz(F_s*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(F_s/2);
+			} else {
+				buzz(F_s);
+			}	
 			break;
 		case Gn:
-			buzz(G);
+			if (pitchMultiplier == 2) {
+				buzz(G*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(G/2);
+			} else {
+				buzz(G);
+			}
 			break;
 		case Gs:
-			buzz(G_s);
+			if (pitchMultiplier == 2) {
+				buzz(G_s*2);
+			} else if (pitchMultiplier == 3) {
+				buzz(G_s/2);
+			} else {
+				buzz(G_s);
+			}
 			break;
 		default:
 			break;
@@ -230,6 +312,11 @@ void pitchChange(uint8_t percentage){
 	// percentage is from 0-100
 	// 50 is normal 1
 	// 0 is 1/2, 100 is 2x
+	if (percentage > 75) {
+		pitchMultiplier = 2;
+	} else if (percentage < 25) {
+			pitchMultiplier = 3;
+	}	
 }
 
 void volumeChange(uint8_t percentage){
@@ -359,14 +446,27 @@ void displayKeytoPlay(key_t key, bool clear){
 	}
 	
 	if(key == As || key == Gs || key == Fs || key == Ds || key == Cs){
-			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, fdark, LCD_COLOR_BLACK);
+			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlacktoPlay, fdark, LCD_COLOR_BLACK);
 	}else if(key == An || key == Bn || key == Cn || key == Dn || key == En || key == Fn || key == Gn){
-			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhite, flight, LCD_COLOR_WHITE);
+			lcd_draw_image(KEYBOARD_WHITE_CENTER, KEYBOARD_WHITE_WIDTH, keyboardLocation[getkeyboardLocation(key)], KEYBOARD_WHITE_HEIGHT, keyboardBitmapWhitetoPlay, flight, LCD_COLOR_WHITE);
 	}else{
 	
 	}
 	
 }
+
+void save_score(uint8_t score)
+{
+  eeprom_byte_write(I2C1_BASE, ADDR_START, score);
+}
+
+uint8_t get_high_score()
+{
+	uint8_t 	read_val;
+  eeprom_byte_read(I2C1_BASE, ADDR_START, &read_val);
+	return read_val;
+}
+
 
 // assign index-1 and index and index+1 to macro colomn locations MENU1 MENU2 MENU3
 // assign macro to initial row location MENUROW
@@ -409,6 +509,23 @@ void displayMenu(void){
 	}
 }
 
+void displayScore(void) {
+	char *string;
+	uint16_t redirect;
+	uint16_t row0; 
+	const uint8_t *bitmap;
+	// get pointer to index-1 string
+	string = scoreBoard;
+	row0 = MENUROW;
+	// iterate throught the string and places at row/col using bitmap
+	lcd_draw_image(MENU1, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
+	for(;*string != '/';string++){
+		bitmap = &letterBitmaps[letterRedirect[*string-32]];
+		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_WHITE, LCD_COLOR_BLACK); 
+		row0 = row0-16;
+	}
+}	
+
 int
 main(void)
 {
@@ -417,7 +534,10 @@ main(void)
 	uint16_t songIndex;
 	const key_t* song;
 	uint8_t necessary;
+	uint8_t delay;
+	uint8_t score, max_score;
 	key_t last_key = Sil;
+	bool toggle_green_led = false;
 	
 	bool setup = false;
 	uint8_t debounce_cnt = 0;
@@ -436,10 +556,11 @@ main(void)
 	cur_key = Sil;
 	// initialize the hardware
 	initializeHardware();
+	save_score(0);
 	
 	printf("**************************************\n\r");
 	printf("PIANO - Project");
-	printf("By - DAN and ");
+	printf("By - DAN and MATT");
 	printf("**************************************\n\r");
 	
 	// infinite loop for game logic
@@ -511,6 +632,8 @@ main(void)
 						mode = FOLLOW;
 						songOver = false;
 						songIndex = 0;
+						score = 0;
+						max_score = 0;
 						switch (menu_index) {
 							case 1:
 								song = maryHadALittleLamb;
@@ -565,7 +688,7 @@ main(void)
 				menu_index = 1;
 				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
-		
+			
 		}	
 		
 		
@@ -577,7 +700,6 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
-				displayTouch(true);
 				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score
 				displayTouch(false);
 			}else{
@@ -600,20 +722,44 @@ main(void)
 				// highlight key at current beat index
 				if (songOver) {
 					displayKeytoPlay(last_key, true);
+					toggle_green_led = false;
+					max_score = max_score - 32;
+					score = score - 32;
+					score = score/max_score;
+					if (score > get_high_score()) {
+						save_score(score);
+					}	
+
+					// Display score
+					printf("Score: %d\n\r", score);
+					printf("High Score: %d\n\r", get_high_score());	
+					displayScore();
+					
 				}	
-				
+
 				if (song[songIndex] == End) {
 					songOver = true;
-				} else if (	song[songIndex] == Cont ) {						
+				} else if (	song[songIndex] == Cont) {						
 					songIndex++;	
 				}	else {
 					if (last_key != song[songIndex]) {
 						displayKeytoPlay(last_key, true);
 					}	
-					last_key = song[songIndex];	
+					last_key = song[songIndex];
+					delay = 0;
+					while (delay < 7) {
+						displayKeytoPlay(song[songIndex], true);
+						delay++;
+					}	
 					displayKeytoPlay(song[songIndex], true);	
 					displayKeytoPlay(song[songIndex], false);							
 					songIndex++;
+				}	
+				
+				max_score++;
+				if (!songOver && cur_key == last_key) {
+					score++;
+					toggle_green_led = true;
 				}	
 				
 				music_beat = false;
@@ -622,6 +768,10 @@ main(void)
 			buzzer_update = false;
 		}
 		
+		if (!joystick_read) {
+			pitchMultiplier = 1;
+		}	
+
 		if(joystick_read){
 			// check adc_values
 			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
@@ -654,6 +804,13 @@ main(void)
 			}
 			
 			button_detect = false;
+		}
+		
+		// Toggle green led if correct note is hit
+		if(toggle_green_led){
+			GPIOF->DATA = GPIOF->DATA ^ GREEN_M;
+			// Clear toggle status
+			toggle_green_led = false;
 		}
 		
 		/*
