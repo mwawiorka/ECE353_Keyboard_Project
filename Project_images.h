@@ -29,6 +29,8 @@
 extern const uint8_t keyboardBitmap[];
 extern const uint8_t keyboardBitmapWhite[];
 extern const uint8_t keyboardBitmapBlack[];
+extern const uint8_t keyboardBitmapWhitetoPlay[];
+extern const uint8_t keyboardBitmapBlacktoPlay[];
 extern const uint16_t keyboardLocation[];
 
 #endif
