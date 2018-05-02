@@ -697,8 +697,10 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
-				displayTouch(true);
-				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score
+				if (checkKey(x_touch, y_touch) != cur_key) {
+					displayTouch(true);
+				}
+				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score	
 				displayTouch(false);
 			}else{
 				displayTouch(true);
@@ -769,13 +771,15 @@ main(void)
 			pitchMultiplier = 1;
 		}
 		
+		printf("Pitch Bend: %d\n\r", pitchPercent);
+		
 		if(joystick_read){
 			// check adc_values
 			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
 			
 			// convert return to a 0-100 scale
-			volumePercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
-			pitchPercent = (uint8_t) 100 * (((float)adc_y_val) / 4096);
+			volumePercent = (uint8_t) 100 * (((float)adc_y_val) / 4096);
+			pitchPercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
 			// change volume based on x
 			volumeChange(volumePercent);
 			// change pitch based on y
