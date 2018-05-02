@@ -24,6 +24,6 @@ typedef enum {
 
 extern const key_t maryHadALittleLamb[];
 
-extern const key_t freedomSong[];
+extern const key_t pokemonTheme[];
 
 #endif
