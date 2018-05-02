@@ -1,5 +1,5 @@
-#ifndef __PROJECT_IMAGES_H__
-#define __PROJECT_IMAGES_H__
+#ifndef __SCORE_H__
+#define __SCORE_H__
 
 #include <stdint.h>
 #include <stdio.h>

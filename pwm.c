@@ -26,7 +26,7 @@ void init_pwm() {
 	pwm->CTL &= ~(TIMER_CTL_TAPWML);	
 	
 	// Initially set duty cycle to 50%
-	//set_duty_cycle(50);	
+	set_duty_cycle(50);	
 		
 	disable_pwm();	
 };
@@ -39,7 +39,7 @@ void set_duty_cycle( int duty_cycle ) {
 		DUTY_CYCLE = CLOCK_FREQUENCY;
 	} 
 	else {
-		DUTY_CYCLE = (duty_cycle/100) * CLOCK_FREQUENCY;
+		DUTY_CYCLE = (((float) duty_cycle)/100) * CLOCK_FREQUENCY;
 	}	
 };
 

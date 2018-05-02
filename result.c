@@ -1,9 +1,9 @@
 // 
 //  Image data for sCORE
 // 
-#inclued "result.h"
+#include "result.h"
 
-const uint_8 resultBitmap[] =
+const uint8_t resultBitmap[] =
 {
 	0x00, 0x60, 0x00, 0x00, 0x60, 0x00, //          ##                      ##        
 	0x01, 0x58, 0x00, 0x01, 0x58, 0x00, //        # # ##                  # # ##      

@@ -78,7 +78,10 @@ char *menuList[] = {
 };
 
 int menuSize = 3;
-char *scoreBoard = "Score			  High Score/";
+
+char *scoreList[] = {
+	"abc/",
+};
 
 //*****************************************************************************
 // 
@@ -107,6 +110,7 @@ void initializeHardware()
 	ft6x06_init();
 	mcp23017_init();
 	init_pwm();
+	eeprom_init();
 	
 	gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
 	
@@ -316,6 +320,8 @@ void pitchChange(uint8_t percentage){
 		pitchMultiplier = 2;
 	} else if (percentage < 25) {
 			pitchMultiplier = 3;
+	} else {
+		pitchMultiplier = 1;
 	}
 }
 
@@ -494,8 +500,47 @@ void displayMenu(void){
 	}
 }
 
-void displayScore(void) {
+void displayScore(uint8_t score, uint8_t high_score) {
+	uint8_t hundreds, tens, ones;
+	char *string;
+	uint16_t row0; 
+	const uint8_t *bitmap;
+	uint16_t topline = COLS/3;
+	uint16_t bottomline = (COLS*2)/3;
+	string = scoreList[0];
 	
+	
+	hundreds = score/100;
+	tens = (score - hundreds*100)/10;
+	ones = score%10;
+	
+	lcd_draw_image(COLS/2, RESULT_WIDTH, ROWS/2, RESULT_HEIGHT, resultBitmap, LCD_COLOR_GREEN, LCD_COLOR_BLACK); 
+	row0 = 120;
+	if(hundreds != 0){
+		bitmap = &numbersBitmaps[numbersDescriptors[hundreds]];
+		lcd_draw_image(105, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
+	}
+	row0 -= 16;
+	bitmap = &numbersBitmaps[numbersDescriptors[tens]];
+	lcd_draw_image(105, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
+	row0 -= 16;
+	bitmap = &numbersBitmaps[numbersDescriptors[ones]];
+	lcd_draw_image(105, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
+	
+	row0 = 120;
+	hundreds = high_score/100;
+	tens = (high_score - hundreds*100)/10;
+	ones = high_score%10;
+	if(hundreds != 0){
+		bitmap = &numbersBitmaps[numbersDescriptors[hundreds]];
+		lcd_draw_image(130, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
+	}
+	row0 -= 16;
+	bitmap = &numbersBitmaps[numbersDescriptors[tens]];
+	lcd_draw_image(130, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
+	row0 -= 16;
+	bitmap = &numbersBitmaps[numbersDescriptors[ones]];
+	lcd_draw_image(130, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
 }
 
 int
@@ -531,8 +576,8 @@ main(void)
 	save_score(0);
 	
 	printf("**************************************\n\r");
-	printf("PIANO - Project");
-	printf("By - DAN and MATT");
+	printf("PIANO - Project\n\r");
+	printf("By - DAN and MATT\n\r");
 	printf("**************************************\n\r");
 	
 	if(game_pause){
@@ -697,10 +742,10 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
-				if (checkKey(x_touch, y_touch) != cur_key) {
+				if(checkKey(x_touch, y_touch) != cur_key){
 					displayTouch(true);
 				}
-				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score	
+				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score
 				displayTouch(false);
 			}else{
 				displayTouch(true);
@@ -714,6 +759,8 @@ main(void)
 		if(buzzer_update){
 			buzzer_play();
 			
+			printf("Score: %d\n\r", score);
+			printf("Max Score: %d\n\r", max_score);
 			if(music_beat && mode == FOLLOW){
 				// if beat index is greater than 0 
 					// check if previous played key state match previous key at beat index
@@ -721,25 +768,51 @@ main(void)
 					// display led color accordingly
 				// highlight key at current beat index
 				if (songOver) {
+					printf("Score: %d\n\r", score);
+					printf("Max Score: %d\n\r", max_score);
+					
 					displayKeytoPlay(last_key, true);
 					toggle_green_led = false;
-					max_score = max_score - 32;
-					score = score - 32;
-					score = score/max_score;
+					max_score = max_score - 16;
+					score = score - 8;
+					score = ((float)score/max_score)*100;
 					if (score > get_high_score()) {
+						printf("Score: %d\n\r", score);
+						printf("High Score: %d\n\r", get_high_score());	
 						save_score(score);
 					}	
 
 					// Display score
 					printf("Score: %d\n\r", score);
+					printf("Max Score: %d\n\r", max_score);
 					printf("High Score: %d\n\r", get_high_score());	
-					displayScore();
+					game_pause = true;
+					displayScore(score, get_high_score());
+					while(game_pause){
+						if(switch_detect){
+							switch_detect = false;
+							if(!lp_io_read_pin(SW1_BIT)){
+								debounce_cnt++;
+								if(debounce_cnt == 5){
+									game_pause = false;
+									mode = MENU;
+									setup = false;
+									lcd_clear_screen(LCD_COLOR_BLACK);
+								}
+							} else {
+								debounce_cnt = 0;
+							}
+						}
+					}
 				}	
 				
 				if (song[songIndex] == End) {
 					songOver = true;
 				} else if (	song[songIndex] == Cont ) {						
 					songIndex++;	
+					if (cur_key != last_key) {
+						displayKeytoPlay(last_key, false);
+					}	
 				}	else {
 					if (last_key != song[songIndex]) {
 						displayKeytoPlay(last_key, true);
@@ -754,8 +827,9 @@ main(void)
 					displayKeytoPlay(song[songIndex], false);							
 					songIndex++;
 				}	
-				
-				max_score++;
+				if(!songOver){
+					max_score++;
+				}
 				if (!songOver && cur_key == last_key) {
 					score++;
 					toggle_green_led = true;
@@ -767,18 +841,12 @@ main(void)
 			buzzer_update = false;
 		}
 		
-		if (!joystick_read) {
-			pitchMultiplier = 1;
-		}
-		
-		printf("Pitch Bend: %d\n\r", pitchPercent);
-		
 		if(joystick_read){
 			// check adc_values
 			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
 			
 			// convert return to a 0-100 scale
-			volumePercent = (uint8_t) 100 * (((float)adc_y_val) / 4096);
+			volumePercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
 			pitchPercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
 			// change volume based on x
 			volumeChange(volumePercent);

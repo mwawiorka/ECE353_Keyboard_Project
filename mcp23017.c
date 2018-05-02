@@ -130,8 +130,8 @@ uint8_t mcp23017_read_reg(uint8_t reg){
 void mcp23017_config(void){
 	// config button
 	mcp23017_write_reg(MCP23017_GPINTENB_R, 0x0F);
-	mcp23017_write_reg(MCP23017_DEFVALB_R, 0xFF);
-	mcp23017_write_reg(MCP23017_INTCONB_R, 0x0F);
+	//mcp23017_write_reg(MCP23017_DEFVALB_R, 0xFF);
+	//mcp23017_write_reg(MCP23017_INTCONB_R, 0x0F);
 	mcp23017_write_reg(MCP23017_GPPUB_R, 0x0F);
 	
 	// config led

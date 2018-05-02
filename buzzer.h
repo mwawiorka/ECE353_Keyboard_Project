@@ -26,6 +26,6 @@ void buzz( int frequency );
  * Stops PWM signal to buzzer
  *
  *****************************************************************************/
-void stop_buzz( );
+void stop_buzz(void);
 
 #endif
