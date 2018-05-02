@@ -59,7 +59,7 @@ volatile bool switch_detect = false;
 volatile bool buzzer_update = false;
 volatile bool joystick_read = false;
 volatile bool button_detect = false;
-volatile bool game_pause = false;
+volatile bool game_pause = true;
 
 // What type are the volume and pitch, set accordingly
 volatile uint8_t buzzerVolume = 50;
@@ -77,9 +77,9 @@ char *menuList[] = {
 	"Pokemon Theme/",
 };
 
+int menuSize = 3;
 char *scoreBoard = "Score			  High Score/";
 
-int menuSize = 3;
 //*****************************************************************************
 // 
 //*****************************************************************************
@@ -133,10 +133,10 @@ void TIMER0A_Handler(){
 	beatCount++;
 	
 	/* 15 * 10ms have passed -> 1/16 note at 100BPM
-	if (beatCount == 15) {	
-		music_beat = true;
-		beatCount = 0;
-	}
+		if (beatCount == 15) {		136.		if (beatCount == 15) {	
+			music_beat = true;	137.			music_beat = true;
+			beatCount = 0;	138.			beatCount = 0;
+		}	139.		}
 	*/
 	// 18.75 * 10ms have passed -> 1/16 note at 80BPM
 	if (beatCount == 19) {	
@@ -316,7 +316,7 @@ void pitchChange(uint8_t percentage){
 		pitchMultiplier = 2;
 	} else if (percentage < 25) {
 			pitchMultiplier = 3;
-	}	
+	}
 }
 
 void volumeChange(uint8_t percentage){
@@ -375,40 +375,28 @@ uint16_t getkeyboardLocation(key_t key){
 	switch(key){
 		case As:
 			return As_Loc;
-			break;
 		case Gs:
 			return Gs_Loc;
-			break;
 		case Fs:
 			return Fs_Loc;
-			break;
 		case Ds:
 			return Ds_Loc;
-			break;
 		case Cs:
 			return Cs_Loc;
-			break;
 		case An:
 			return A_Loc;
-			break;
 		case Bn:
 			return B_Loc;
-			break;
 		case Cn:
 			return C_Loc;
-			break;
 		case Dn:
 			return D_Loc;
-			break;
 		case En:
 			return E_Loc;
-			break;
 		case Fn:
 			return F_Loc;
-			break;
 		case Gn:
 			return G_Loc;
-			break;
 		default:
 			for(;;)
 			break;
@@ -467,14 +455,11 @@ uint8_t get_high_score()
 	return read_val;
 }
 
-
 // assign index-1 and index and index+1 to macro colomn locations MENU1 MENU2 MENU3
 // assign macro to initial row location MENUROW
 // index is at ascii-40
 void displayMenu(void){
 	char *string;
-	char temp;
-	uint16_t redirect;
 	uint16_t row0; 
 	const uint8_t *bitmap;
 	// get pointer to index-1 string
@@ -510,21 +495,8 @@ void displayMenu(void){
 }
 
 void displayScore(void) {
-	char *string;
-	uint16_t redirect;
-	uint16_t row0; 
-	const uint8_t *bitmap;
-	// get pointer to index-1 string
-	string = scoreBoard;
-	row0 = MENUROW;
-	// iterate throught the string and places at row/col using bitmap
-	lcd_draw_image(MENU1, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
-	for(;*string != '/';string++){
-		bitmap = &letterBitmaps[letterRedirect[*string-32]];
-		lcd_draw_image(MENU1, 16, row0, 16, bitmap, LCD_COLOR_WHITE, LCD_COLOR_BLACK); 
-		row0 = row0-16;
-	}
-}	
+	
+}
 
 int
 main(void)
@@ -534,9 +506,9 @@ main(void)
 	uint16_t songIndex;
 	const key_t* song;
 	uint8_t necessary;
+	key_t last_key = Sil;
 	uint8_t delay;
 	uint8_t score, max_score;
-	key_t last_key = Sil;
 	bool toggle_green_led = false;
 	
 	bool setup = false;
@@ -563,10 +535,8 @@ main(void)
 	printf("By - DAN and MATT");
 	printf("**************************************\n\r");
 	
-	// infinite loop for game logic
-	while(1){
-		// crude method of pausing a game
-		/*
+	if(game_pause){
+		lcd_draw_image(COLS/2, TITLE_WIDTH, ROWS/2, TITLE_HEIGHT, titleBitmaps, LCD_COLOR_RED, LCD_COLOR_BLACK);
 		while(game_pause){
 			if(switch_detect){
 				switch_detect = false;
@@ -580,7 +550,34 @@ main(void)
 				}
 			}
 		}
-		*/
+		lcd_clear_screen(LCD_COLOR_BLACK);
+	}
+	
+	// infinite loop for game logic
+	while(1){
+		// crude method of pausing a game
+		while(game_pause){
+			if(switch_detect){
+				switch_detect = false;
+				if(!lp_io_read_pin(SW1_BIT)){
+					debounce_cnt++;
+					if(debounce_cnt == 5){
+						game_pause = false;
+						if(mode == MENU){
+							lcd_clear_screen(LCD_COLOR_BLACK);
+							lcd_draw_image(COLS/2, 32, ROWS/2, 316, selectBoxHor, LCD_COLOR_ORANGE, LCD_COLOR_BLACK);
+							displayMenu();
+						}else{
+							displayTouch(false);
+							lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
+						}
+					}
+				} else {
+					debounce_cnt = 0;
+				}
+			}
+		}
+		
 		necessary = mcp23017_read_reg(MCP23017_INTCAPB_R);
 		// check if set up
 		if(!setup){
@@ -688,7 +685,7 @@ main(void)
 				menu_index = 1;
 				lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_BLACK);
 			}
-			
+		
 		}	
 		
 		
@@ -700,6 +697,7 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
+				displayTouch(true);
 				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score
 				displayTouch(false);
 			}else{
@@ -734,12 +732,11 @@ main(void)
 					printf("Score: %d\n\r", score);
 					printf("High Score: %d\n\r", get_high_score());	
 					displayScore();
-					
 				}	
-
+				
 				if (song[songIndex] == End) {
 					songOver = true;
-				} else if (	song[songIndex] == Cont) {						
+				} else if (	song[songIndex] == Cont ) {						
 					songIndex++;	
 				}	else {
 					if (last_key != song[songIndex]) {
@@ -770,8 +767,8 @@ main(void)
 		
 		if (!joystick_read) {
 			pitchMultiplier = 1;
-		}	
-
+		}
+		
 		if(joystick_read){
 			// check adc_values
 			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
@@ -806,26 +803,17 @@ main(void)
 			button_detect = false;
 		}
 		
-		// Toggle green led if correct note is hit
-		if(toggle_green_led){
-			GPIOF->DATA = GPIOF->DATA ^ GREEN_M;
-			// Clear toggle status
-			toggle_green_led = false;
-		}
-		
-		/*
 		if(switch_detect){
 			switch_detect = false;
 			if(!lp_io_read_pin(SW1_BIT)){
 				debounce_cnt++;
 				if(debounce_cnt == 5){
 					game_pause = true;
+					lcd_draw_image(COLS/2, PAUSED_WIDTH, ROWS/2, PAUSED_HEIGHT, pausedBitmaps, LCD_COLOR_RED, LCD_COLOR_BLACK);
 				}
 			} else {
 				debounce_cnt = 0;
 			}
 		}
-		*/
-		
 	}
 }
