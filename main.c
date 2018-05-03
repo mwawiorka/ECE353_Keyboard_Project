@@ -26,6 +26,7 @@
 //*****************************************************************************
 #include "main.h"
 
+// Type for debounce states
 typedef enum {
 	DEBOUNCE_WAIT,
 	DEBOUNCE_ONE,
@@ -33,12 +34,14 @@ typedef enum {
 	DEBOUNCE_PRESSED,
 } DEBOUNCE_STATUS;
 
+// Type for game mode
 typedef enum {
 	MENU,
 	FOLLOW,
 	PLAY,
 } mode_t;
 
+// Type for button direction
 typedef enum {
 	NA,
 	UP_B,
@@ -47,41 +50,39 @@ typedef enum {
 	RIGHT_B,
 } button_t;
 
-mode_t mode;
-key_t cur_key;
-button_t button_pressed;
+// Instantiate global states
+mode_t mode;  // Game mode
+key_t cur_key; // Imported key notes
+button_t button_pressed; // Button state
 
-volatile bool music_beat = false;
-volatile bool game_start = false;
-volatile bool loading_led = false;
-volatile bool read_touch = false;
-volatile bool switch_detect = false;
-volatile bool buzzer_update = false;
-volatile bool joystick_read = false;
-volatile bool button_detect = false;
-volatile bool game_pause = true;
+volatile bool music_beat = false;	// Beat interrupt at 80bpm
+volatile bool game_start = false;	// Indicate game has started
+volatile bool loading_led = false;	// Led display interrupt
+volatile bool read_touch = false;	// Touch interrupt for lcd read
+volatile bool switch_detect = false;	// Interrupt for sw1 read
+volatile bool buzzer_update = false;	// Interrupt for updating buzzer sound
+volatile bool joystick_read = false;	// Interrupt for reading joystick value
+volatile bool button_detect = false;	// Interrupt for reading button value
+volatile bool game_pause = true;	// Global pause of the game
 
 // What type are the volume and pitch, set accordingly
-volatile uint8_t buzzerVolume = 50;
-volatile uint8_t buzzerPitch = 50;
+volatile uint8_t buzzerVolume = 50;	// Normal buzzer volume
+volatile uint8_t buzzerPitch = 50;	// Normal pitch
 volatile uint8_t pitchMultiplier = 1;
 volatile uint8_t volumeMultiplier = 1;
 
-volatile int menu_index = 1;
+volatile int menu_index = 1; // Start of which song to display at center of menu
 
 volatile uint16_t note_index = 0;
 
+// List of music/type to play
 char *menuList[] = {
 	"Free Play/",
 	"Mary n Lamb/",
 	"Pokemon Theme/",
 };
 
-int menuSize = 3;
-
-char *scoreList[] = {
-	"abc/",
-};
+int menuSize = 3; // current size of the menuList
 
 //*****************************************************************************
 // 
@@ -106,21 +107,21 @@ void EnableInterrupts(void)
 void initializeHardware()
 {
 	DisableInterrupts();
-	init_serial_debug(true, true);
-	ft6x06_init();
-	mcp23017_init();
-	init_pwm();
-	eeprom_init();
+	init_serial_debug(true, true); //Prints
+	ft6x06_init();	//Touchscreen
+	mcp23017_init();	//Port Expander
+	init_pwm();	//PWM for buzzer
+	eeprom_init();	//EEPROM
 	
-	gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true);
+	gp_timer_config_16(TIMER0_BASE, TIMER_TAMR_TAMR_PERIOD | TIMER_TBMR_TBMR_PERIOD, false, true); //16bit timers
 	
-	lcd_config_gpio();
-	lcd_config_screen();
+	lcd_config_gpio();	//LCD dislplay config
+	lcd_config_screen(); //LCD clear and setup
 	lcd_clear_screen(LCD_COLOR_BLACK);
 	
-	lp_io_init();
+	lp_io_init(); 
 	
-	ps2_initialize_ss2();
+	ps2_initialize_ss2(); //Joystick init
 	initialize_adc_ss2(ADC0_BASE);
 	EnableInterrupts();
 }
@@ -130,12 +131,13 @@ void TIMER0A_Handler(){
 	// Count number of 10ms periods to equate to a 1/16th note
 	static uint8_t beatCount = 0;
 	
+	// Return and not update if game paused
 	if(game_pause){
 		TIMER0->ICR = TIMER_ICR_TATOCINT;
 		return;
 	}
 	
-	beatCount++;
+	beatCount++; 
 	
 	/* 15 * 10ms have passed -> 1/16 note at 100BPM
 		if (beatCount == 15) {		136.		if (beatCount == 15) {	
@@ -157,6 +159,7 @@ void TIMER0B_Handler(){
 	
 	switch_detect = true;	
 	
+	// Return if game paused
 	if(game_pause){
 		TIMER0->ICR = TIMER_ICR_TBTOCINT;
 		return;
@@ -170,7 +173,7 @@ void TIMER0B_Handler(){
 }
 
 void ADC0SS2_Handler(){
-	
+	// Return if game paused
 	if(game_pause){
 		ADC0->ISC = ADC_ISC_IN2;
 		return;
@@ -183,6 +186,7 @@ void ADC0SS2_Handler(){
 
 void GPIOF_Handler(){
 	
+	// Return if game paused
 	if(game_pause){
 		GPIOF->ICR = GPIO_ICR_GPIO_M;
 		return;
@@ -376,6 +380,7 @@ key_t checkKey(uint16_t x, uint16_t y){
 	return retKey;
 }
 
+// Get the col location of the specific key
 uint16_t getkeyboardLocation(key_t key){
 	switch(key){
 		case As:
@@ -420,6 +425,7 @@ void displayTouch(bool clear){
 		flight = LCD_COLOR_WHITE;
 	}
 	
+	// Clear and set depending on the key type
 	if(cur_key == As || cur_key == Gs || cur_key == Fs || cur_key == Ds || cur_key == Cs){
 			lcd_draw_image(KEYBOARD_BLACK_CENTER, KEYBOARD_BLACK_WIDTH, keyboardLocation[getkeyboardLocation(cur_key)], KEYBOARD_BLACK_HEIGHT, keyboardBitmapBlack, fdark, LCD_COLOR_BLACK);
 	}else if(cur_key == An || cur_key == Bn || cur_key == Cn || cur_key == Dn || cur_key == En || cur_key == Fn || cur_key == Gn){
@@ -512,12 +518,15 @@ void displayScore(uint8_t score, uint8_t high_score) {
 	uint16_t bottomline = (COLS*2)/3;
 	string = scoreList[0];
 	
-	
+	// Sets up the values at the decimal places
 	hundreds = score/100;
 	tens = (score - hundreds*100)/10;
 	ones = score%10;
 	
+	// Draw the score background
 	lcd_draw_image(COLS/2, RESULT_WIDTH, ROWS/2, RESULT_HEIGHT, resultBitmap, LCD_COLOR_GREEN, LCD_COLOR_BLACK); 
+	
+	// Draw the current score at the top line in order of hundreds, tens, ones
 	row0 = 120;
 	if(hundreds != 0){
 		bitmap = &numbersBitmaps[numbersDescriptors[hundreds]];
@@ -530,6 +539,7 @@ void displayScore(uint8_t score, uint8_t high_score) {
 	bitmap = &numbersBitmaps[numbersDescriptors[ones]];
 	lcd_draw_image(105, 16, row0, 13, bitmap, LCD_COLOR_ORANGE, LCD_COLOR_BLACK); 
 	
+	// Draw the high score on the bottom line in order of hundres, tens, ones
 	row0 = 120;
 	hundreds = high_score/100;
 	tens = (high_score - hundreds*100)/10;
@@ -559,18 +569,19 @@ main(void)
 	uint16_t score, max_score;	// Current score and max possible score
 	uint8_t fin_score;	// Final score calculated from current score and max possible score
 
-	bool setup = false;
-	uint8_t debounce_cnt = 0;
-	uint8_t buttons = 0xFF;
+	bool setup = false; // Used to set up initial screen
+	uint8_t debounce_cnt = 0; // Debounce counting
+	uint8_t buttons = 0xFF; // Initially all buttons are not pressed
 
-	uint16_t adc_x_val = 0;
-	uint16_t adc_y_val = 0;
+	uint16_t adc_x_val = 0; // Store joystick x value
+	uint16_t adc_y_val = 0; // Store joystick y value
 	uint8_t pitchPercent = 50;	// Initial pitch value (for pitchMultiplier)
 	
-	uint16_t x_touch = 0;
-	uint16_t y_touch = 0;
-	uint8_t touch_event = false;
+	uint16_t x_touch = 0; // Store lcd touch x value
+	uint16_t y_touch = 0; // Store lcd touch y value
+	uint8_t touch_event = false; // Indicated if the screen is touched
 	
+	// Start in menu with buzzer off
 	mode = MENU;
 	cur_key = Sil;
 	// initialize the hardware
@@ -582,6 +593,7 @@ main(void)
 	printf("By - DAN and MATT\n\r");
 	printf("**************************************\n\r");
 	
+	// Title screen until the sw1 has been debounced
 	if(game_pause){
 		lcd_draw_image(COLS/2, TITLE_WIDTH, ROWS/2, TITLE_HEIGHT, titleBitmaps, LCD_COLOR_RED, LCD_COLOR_BLACK);
 		while(game_pause){
@@ -654,6 +666,7 @@ main(void)
 		if(mode == MENU){
 			switch(button_pressed){
 				case UP_B:
+					// Scroll up on the menu list
 					menu_index--;
 					if(menu_index == -1){
 						menu_index = menuSize-1;
@@ -662,13 +675,14 @@ main(void)
 					button_pressed = NA;
 					break;
 				case DOWN_B:
+					// Scroll down on the menu list
 					menu_index = (menu_index + 1)%menuSize;
 					displayMenu();
 					button_pressed = NA;
 					break;
 				case RIGHT_B:
 					// change mode to follow if index != 0
-					// else change mode to free
+					// else change mode to free play
 					if(menu_index == 0){
 						mode = PLAY;
 						lcd_draw_image(COLS/2, KEYBOARD_WIDTH, ROWS/2, KEYBOARD_HEIGHT, keyboardBitmap, LCD_COLOR_BLACK, LCD_COLOR_WHITE);
@@ -705,6 +719,7 @@ main(void)
 		else if(mode == FOLLOW){
 			// highlight necessary part of board
 			
+			// Exit mode if left button is pressed and reset
 			if(button_pressed == LEFT_B){
 				mode = MENU;
 				setup = false;
@@ -722,6 +737,7 @@ main(void)
 		// FREE PLAY 
 		else{
 			// highlight necessary part of board
+			// Exit mode if left button is pressed and reset
 			if(button_pressed == LEFT_B){
 				mode = MENU;
 				setup = false;
@@ -735,8 +751,7 @@ main(void)
 		
 		}	
 		
-		
-		
+		// Read touch only when not in MENU
 		if(read_touch && mode != MENU){
 			// check if screen is currently pressed and grab values
 			touch_event = ft6x06_read_td_status();
@@ -841,6 +856,7 @@ main(void)
 			buzzer_update = false;
 		}
 		
+		// Read joystick value for volume and pitch
 		if(joystick_read){
 			// check adc_values
 			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
@@ -852,11 +868,12 @@ main(void)
 			joystick_read = false;
 		}
 		
+		// Port buttons are already debounced
 		if(button_detect){
-			//debounce_button();
 			
 			buttons = mcp23017_read_reg(MCP23017_INTCAPB_R);
 			
+			// Determine direction of button and rotate it to fit game style
 			if(!(buttons & (1 <<DIR_BTN_DOWN_PIN))){
 				button_pressed = LEFT_B;
 			}else if(!(buttons & (1 <<DIR_BTN_LEFT_PIN))){
@@ -872,6 +889,7 @@ main(void)
 			button_detect = false;
 		}
 		
+		// Detect sw1 for entering pause mode
 		if(switch_detect){
 			switch_detect = false;
 			if(!lp_io_read_pin(SW1_BIT)){
