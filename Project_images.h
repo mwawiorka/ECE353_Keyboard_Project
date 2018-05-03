@@ -4,15 +4,16 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define       	KEYBOARD_HEIGHT 	320		// height of keyboard image in pixels
-#define       	KEYBOARD_WIDTH  	239		// width of keyboard image in pixels
-#define					KEYBOARD_WHITE_HEIGHT		44
-#define					KEYBOARD_WHITE_WIDTH		120
-#define					KEYBOARD_BLACK_HEIGHT		32
-#define					KEYBOARD_BLACK_WIDTH		120
-#define					KEYBOARD_BLACK_CENTER		61
-#define					KEYBOARD_WHITE_CENTER		180
+#define       			KEYBOARD_HEIGHT 	320		// height of keyboard image in pixels
+#define       			KEYBOARD_WIDTH  	239		// width of keyboard image in pixels
+#define					KEYBOARD_WHITE_HEIGHT		44		// Height of white keys
+#define					KEYBOARD_WHITE_WIDTH		120		// Width of white key
+#define					KEYBOARD_BLACK_HEIGHT		32		// Height of black keys
+#define					KEYBOARD_BLACK_WIDTH		120		// Width of black keys
+#define					KEYBOARD_BLACK_CENTER		61		// Col location of black keys
+#define					KEYBOARD_WHITE_CENTER		180		// Col location of white keys
 
+// Correlating key notes with keyboardLocation index
 #define					A_Loc		3
 #define					B_Loc		1
 #define					C_Loc		13
@@ -26,11 +27,11 @@
 #define					Ds_Loc		8
 #define					Cs_Loc		12
 
-extern const uint8_t keyboardBitmap[];
-extern const uint8_t keyboardBitmapWhite[];
-extern const uint8_t keyboardBitmapBlack[];
+extern const uint8_t keyboardBitmap[]; // Bitmap of the whole keyboard
+extern const uint8_t keyboardBitmapWhite[]; // White key size
+extern const uint8_t keyboardBitmapBlack[]; // Black key size
 extern const uint8_t keyboardBitmapWhitetoPlay[]; // White key with red circle in the middle indicating to play it
 extern const uint8_t keyboardBitmapBlacktoPlay[]; // Black key with red circle in the middle indicating to play it
-extern const uint16_t keyboardLocation[];
+extern const uint16_t keyboardLocation[]; // Key location
 
 #endif
