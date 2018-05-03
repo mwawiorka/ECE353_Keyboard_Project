@@ -29,8 +29,8 @@
 extern const uint8_t keyboardBitmap[];
 extern const uint8_t keyboardBitmapWhite[];
 extern const uint8_t keyboardBitmapBlack[];
-extern const uint8_t keyboardBitmapWhitetoPlay[];
-extern const uint8_t keyboardBitmapBlacktoPlay[];
+extern const uint8_t keyboardBitmapWhitetoPlay[]; // White key with red circle in the middle indicating to play it
+extern const uint8_t keyboardBitmapBlacktoPlay[]; // Black key with red circle in the middle indicating to play it
 extern const uint16_t keyboardLocation[];
 
 #endif
