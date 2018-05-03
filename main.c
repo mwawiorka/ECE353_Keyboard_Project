@@ -552,8 +552,8 @@ main(void)
 	const key_t* song;
 	uint8_t necessary;
 	key_t last_key = Sil;
-	uint8_t delay;
-	uint8_t score, max_score;
+	uint8_t delay, fin_score;
+	uint16_t score, max_score;
 	bool toggle_green_led = false;
 	
 	bool setup = false;
@@ -775,19 +775,19 @@ main(void)
 					toggle_green_led = false;
 					max_score = max_score - 16;
 					score = score - 8;
-					score = ((float)score/max_score)*100;
-					if (score > get_high_score()) {
-						printf("Score: %d\n\r", score);
+					fin_score = 100*((float)score/max_score);
+					if (fin_score > get_high_score()) {
+						printf("Score: %d\n\r", fin_score);
 						printf("High Score: %d\n\r", get_high_score());	
-						save_score(score);
+						save_score(fin_score);
 					}	
 
 					// Display score
-					printf("Score: %d\n\r", score);
+					printf("Score: %d\n\r", fin_score);
 					printf("Max Score: %d\n\r", max_score);
 					printf("High Score: %d\n\r", get_high_score());	
 					game_pause = true;
-					displayScore(score, get_high_score());
+					displayScore(fin_score, get_high_score());
 					while(game_pause){
 						if(switch_detect){
 							switch_detect = false;
