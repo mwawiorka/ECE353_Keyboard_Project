@@ -3,6 +3,7 @@
 // 
 #include "paused.h"
 
+// Bitmap for paused screen
 const uint8_t pausedBitmaps[] =
 {
 	0x00, 0x00, 0x02, 0x80, 0x00, 0x00, 0x00, //                       # #                         
