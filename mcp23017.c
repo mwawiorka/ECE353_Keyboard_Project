@@ -36,6 +36,7 @@ static i2c_status_t mcp23017_set_addr
 }
 
 //*****************************************************************************
+// Writing one byte of data to a register
 //*****************************************************************************
 static i2c_status_t mcp23017_write_data
 ( 
@@ -49,6 +50,7 @@ static i2c_status_t mcp23017_write_data
   // Before doing anything, make sure the I2C device is idle
   while ( I2CMasterBusy(i2c_base)) {};
 
+	// Set the Slave device to be port expander
   status = i2cSetSlaveAddr(i2c_base, MCP23017_DEV_ID , I2C_WRITE);
     
   if ( status != I2C_OK )
@@ -56,6 +58,7 @@ static i2c_status_t mcp23017_write_data
     return status;
   }
 
+	// Set the register to write to
   status = i2cSendByte( i2c_base, reg, I2C_MCS_START | I2C_MCS_RUN);
 	
 	if ( status != I2C_OK )
@@ -63,6 +66,7 @@ static i2c_status_t mcp23017_write_data
     return status;
   }
 	
+	// Write data to register location
 	status = i2cSendByte( i2c_base, data, I2C_MCS_RUN | I2C_MCS_STOP);
 
 
@@ -70,6 +74,7 @@ static i2c_status_t mcp23017_write_data
 }
 
 //*****************************************************************************
+// Reading one byte of data from a register
 //*****************************************************************************
 static i2c_status_t mcp23017_read_data
 ( 
@@ -82,7 +87,8 @@ static i2c_status_t mcp23017_read_data
   
   // Before doing anything, make sure the I2C device is idle
   while ( I2CMasterBusy(i2c_base)) {};
-		
+	
+	// Set Slave address of port expander
 	status = i2cSetSlaveAddr(i2c_base, MCP23017_DEV_ID , I2C_WRITE);
 	
   if ( status != I2C_OK )
@@ -90,6 +96,7 @@ static i2c_status_t mcp23017_read_data
     return status;
   }
 
+	// Set the register to read from 
   status = i2cSendByte( i2c_base, reg, I2C_MCS_START | I2C_MCS_RUN);
 	
 	if ( status != I2C_OK )
@@ -97,6 +104,7 @@ static i2c_status_t mcp23017_read_data
     return status;
   }	
 
+	// Set Slave address to read mode
   status = i2cSetSlaveAddr(i2c_base, MCP23017_DEV_ID , I2C_READ);
     
   if ( status != I2C_OK )
@@ -104,18 +112,21 @@ static i2c_status_t mcp23017_read_data
     return status;
   }
 
+	// Read one byte of data
   status = i2cGetByte( i2c_base, data , I2C_MCS_START | I2C_MCS_RUN | I2C_MCS_STOP);
 
   return status;
 }
 
 //*****************************************************************************
+// Wraper function for write data 
 //*****************************************************************************
 void mcp23017_write_reg(uint8_t reg, uint8_t data){
 	mcp23017_write_data(MCP23017_I2C_BASE, reg, data);
 }
 
 //*****************************************************************************
+// Wrapper function of reading data
 //*****************************************************************************
 uint8_t mcp23017_read_reg(uint8_t reg){
 	uint8_t data = 0x00;
@@ -126,16 +137,17 @@ uint8_t mcp23017_read_reg(uint8_t reg){
 }
 
 //*****************************************************************************
+// Configure the port expander
 //*****************************************************************************
 void mcp23017_config(void){
 	// config button
-	mcp23017_write_reg(MCP23017_GPINTENB_R, 0x0F);
+	mcp23017_write_reg(MCP23017_GPINTENB_R, 0x0F); //Enable interrupt
 	//mcp23017_write_reg(MCP23017_DEFVALB_R, 0xFF);
 	//mcp23017_write_reg(MCP23017_INTCONB_R, 0x0F);
-	mcp23017_write_reg(MCP23017_GPPUB_R, 0x0F);
+	mcp23017_write_reg(MCP23017_GPPUB_R, 0x0F); //Set GPIO to pull up
 	
 	// config led
-	mcp23017_write_reg(MCP23017_IODIRA_R, 0x00);
+	mcp23017_write_reg(MCP23017_IODIRA_R, 0x00); //Set leds as output
 }
 
 //*****************************************************************************
@@ -144,10 +156,12 @@ void mcp23017_gpio_irq_config(void){
 	SYSCTL->RCGCGPIO |= SYSCTL_RCGCGPIO_R5;
   while (! (SYSCTL->PRGPIO & SYSCTL_PRGPIO_R5) ) {}
 	
+	// Configures the GPIO 
 	gpio_enable_port(MCP23017_IRQ_GPIO_BASE);
 	gpio_config_digital_enable(MCP23017_IRQ_GPIO_BASE,MCP23017_IRQ_PIN_NUM);
 	gpio_config_enable_input(MCP23017_IRQ_GPIO_BASE,MCP23017_IRQ_PIN_NUM);
-		
+	
+	// Set Port F to interrupt with device input on posedge
 	GPIOF->IS &= ~MCP23017_IRQ_PIN_NUM;
 	GPIOF->ICR |= MCP23017_IRQ_PIN_NUM;
 	GPIOF->IBE &= ~MCP23017_IRQ_PIN_NUM;
