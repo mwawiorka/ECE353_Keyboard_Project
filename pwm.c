@@ -45,10 +45,10 @@ void set_duty_cycle( int duty_cycle ) {
 
 void gen_frequency( int frequency ) {
 	pwm->TAPR = 0;
-	pwm->TAILR = CLOCK_FREQUENCY/frequency;
+	pwm->TAILR = CLOCK_FREQUENCY/frequency;	// Set timer period as the # of clock cycles corresponding to the input frequency
 	
 	pwm->TAPMR = 0;
-	pwm->TAMATCHR = (DUTY_CYCLE)/frequency;
+	pwm->TAMATCHR = (DUTY_CYCLE)/frequency;	// Invert PWM signal when duty cycle * period has passed
 	
 	pwm->CTL |= TIMER_CTL_TAEN;
 };
