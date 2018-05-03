@@ -116,7 +116,7 @@ void initializeHardware()
 	
 	lcd_config_gpio();
 	lcd_config_screen();
-  lcd_clear_screen(LCD_COLOR_BLACK);
+	lcd_clear_screen(LCD_COLOR_BLACK);
 	
 	lp_io_init();
 	
@@ -125,8 +125,9 @@ void initializeHardware()
 	EnableInterrupts();
 }
 
-// used for the FOLLOW mode
+// This timer is used to count 1/16th notes for play along (FOLLOW) mode
 void TIMER0A_Handler(){
+	// Count number of 10ms periods to equate to a 1/16th note
 	static uint8_t beatCount = 0;
 	
 	if(game_pause){
@@ -148,6 +149,7 @@ void TIMER0A_Handler(){
 		beatCount = 0;
 	}
 	
+	// Clear interrupt
 	TIMER0->ICR = TIMER_ICR_TATOCINT;
 }
 
@@ -190,6 +192,7 @@ void GPIOF_Handler(){
 	GPIOF->ICR = GPIO_ICR_GPIO_M;
 }
 
+// Play note on buzzer
 void buzzer_play(){
 	// check the current key state
 	// if cont then continue playing
@@ -200,9 +203,9 @@ void buzzer_play(){
 			stop_buzz();
 			break;
 		case An:
-			if (pitchMultiplier == 2) {
+			if (pitchMultiplier == 2) {			// If the joystick is up play the note up an octave (2 * frequency)
 				buzz(A*2);
-			} else if (pitchMultiplier == 3) {
+			} else if (pitchMultiplier == 3) {		// If the joystick is up down the note down an octave (1/2 * frequency)
 				buzz(A/2);
 			} else {		
 				buzz(A);
@@ -312,6 +315,7 @@ void buzzer_play(){
 	}
 }
 
+// This function handles changing the pitchMultiplier according to the joystick position
 void pitchChange(uint8_t percentage){
 	// percentage is from 0-100
 	// 50 is normal 1
@@ -325,12 +329,7 @@ void pitchChange(uint8_t percentage){
 	}
 }
 
-void volumeChange(uint8_t percentage){
-	// percentage is from 0-100
-	// 50 is normal 1
-	// 0 is 1/2, 100 is 2x
-}
-
+// This function returns the key corresponding to a touch location
 key_t checkKey(uint16_t x, uint16_t y){
 	key_t retKey;
 	// if x is less than half row, check sharp
@@ -411,8 +410,9 @@ uint16_t getkeyboardLocation(key_t key){
 	return NULL;
 }
 
+// displayTouch highlights the key currently being touched
 void displayTouch(bool clear){
-	// given key, highlight the board at the pressed spot
+	// given key, highlight the board at the pressed spot or clear the highlight there if clear is true
 	uint16_t fdark = LCD_COLOR_RED;
 	uint16_t flight = LCD_COLOR_RED;
 	if(clear){
@@ -430,6 +430,7 @@ void displayTouch(bool clear){
 	
 }
 
+// displayKeytoPlay highlights the key to play in a song and draws a red circle in it
 void displayKeytoPlay(key_t key, bool clear){
 	// given key, highlight the board at the pressed spot
 	uint16_t fdark = LCD_COLOR_RED;
@@ -449,11 +450,13 @@ void displayKeytoPlay(key_t key, bool clear){
 	
 }
 
+// Save current score
 void save_score(uint8_t score)
 {
   eeprom_byte_write(I2C1_BASE, ADDR_START, score);
 }
 
+// Get the high score
 uint8_t get_high_score()
 {
 	uint8_t 	read_val;
@@ -546,24 +549,23 @@ void displayScore(uint8_t score, uint8_t high_score) {
 int
 main(void)
 {
-	// set up necessary variable
-	bool songOver;
-	uint16_t songIndex;
-	const key_t* song;
-	uint8_t necessary;
-	key_t last_key = Sil;
-	uint8_t delay, fin_score;
-	uint16_t score, max_score;
-	bool toggle_green_led = false;
-	
+	// set up necessary variables
+	bool songOver;	// Check if song is over
+	uint16_t songIndex;	// Position in the song in FOLLOW mode
+	const key_t* song;	// Pointer to the chosen song array
+	uint8_t necessary;	// Necessary int for mcp
+	key_t last_key = Sil;	// Last key in song 
+	uint8_t delay; // Delay between consecutive notes that are the same for visual detection
+	uint16_t score, max_score;	// Current score and max possible score
+	uint8_t fin_score;	// Final score calculated from current score and max possible score
+
 	bool setup = false;
 	uint8_t debounce_cnt = 0;
 	uint8_t buttons = 0xFF;
 
 	uint16_t adc_x_val = 0;
 	uint16_t adc_y_val = 0;
-	uint8_t volumePercent = 50;
-	uint8_t pitchPercent = 50;
+	uint8_t pitchPercent = 50;	// Initial pitch value (for pitchMultiplier)
 	
 	uint16_t x_touch = 0;
 	uint16_t y_touch = 0;
@@ -742,50 +744,38 @@ main(void)
 				x_touch = ft6x06_read_x();
 				y_touch = ft6x06_read_y();
 				
+				// If pressing a different key than last, clear the last highlighted key
 				if(checkKey(x_touch, y_touch) != cur_key){
 					displayTouch(true);
 				}
-				cur_key = checkKey(x_touch, y_touch); // used to detect change in key for score
+				// Get the current key being pressed and display it
+				cur_key = checkKey(x_touch, y_touch); 
 				displayTouch(false);
 			}else{
+				// If no key is being pressed, clear the last key
 				displayTouch(true);
 				cur_key = Sil; // used to detect change in key for score
 			}
-				// check key type
-				// display pressed key location
+
 			read_touch = false;
 		}
 		
+		// Every TimerB event, play the buzzer and check for 1/16th notes to play through the song
 		if(buzzer_update){
 			buzzer_play();
 			
-			printf("Score: %d\n\r", score);
-			printf("Max Score: %d\n\r", max_score);
-			if(music_beat && mode == FOLLOW){
-				// if beat index is greater than 0 
-					// check if previous played key state match previous key at beat index
-						// increase match index for scoring
-					// display led color accordingly
-				// highlight key at current beat index
+			if(music_beat && mode == FOLLOW){			
+				// If song is over calculate and display final score
 				if (songOver) {
-					printf("Score: %d\n\r", score);
-					printf("Max Score: %d\n\r", max_score);
-					
-					displayKeytoPlay(last_key, true);
-					toggle_green_led = false;
-					max_score = max_score - 16;
-					score = score - 8;
-					fin_score = 100*((float)score/max_score);
+					displayKeytoPlay(last_key, true);	// Clear the last key played
+					max_score = max_score - 16;	// Account for the extra half measure at the beginning and end for padding
+					score = score - 8;	// Don't count warm up half measure in beginning for score
+					fin_score = 100*((float)score/max_score); // Final score is a percentage of score/max possible score
 					if (fin_score > get_high_score()) {
-						printf("Score: %d\n\r", fin_score);
-						printf("High Score: %d\n\r", get_high_score());	
-						save_score(fin_score);
+						save_score(fin_score); // If new high score, save it
 					}	
 
-					// Display score
-					printf("Score: %d\n\r", fin_score);
-					printf("Max Score: %d\n\r", max_score);
-					printf("High Score: %d\n\r", get_high_score());	
+					// Display score	
 					game_pause = true;
 					displayScore(fin_score, get_high_score());
 					while(game_pause){
@@ -806,33 +796,43 @@ main(void)
 					}
 				}	
 				
+				// highlight key at current beat index
+				// Check if song is over
 				if (song[songIndex] == End) {
 					songOver = true;
+				// If a note is held, don't redraw it unless the player isn't playing it	
 				} else if (	song[songIndex] == Cont ) {						
 					songIndex++;	
 					if (cur_key != last_key) {
 						displayKeytoPlay(last_key, false);
 					}	
 				}	else {
+					// If a new note is played, clear the last highlighted note
 					if (last_key != song[songIndex]) {
 						displayKeytoPlay(last_key, true);
 					}	
 					last_key = song[songIndex];
+					// Delay between consecutive, same notes so they can be detected as distinct rhythmically
 					delay = 0;
 					while (delay < 7) {
 						displayKeytoPlay(song[songIndex], true);
 						delay++;
 					}	
+					// Highlight the note
 					displayKeytoPlay(song[songIndex], true);	
 					displayKeytoPlay(song[songIndex], false);							
 					songIndex++;
 				}	
+				
+				// Calculate max possible score
 				if(!songOver){
 					max_score++;
 				}
+				
+				// check if played key state matches key at beat index
+				// increase match index for scoring
 				if (!songOver && cur_key == last_key) {
 					score++;
-					toggle_green_led = true;
 				}	
 				
 				music_beat = false;
@@ -846,10 +846,7 @@ main(void)
 			get_adc_conversion(ADC0_BASE, &adc_x_val, &adc_y_val);
 			
 			// convert return to a 0-100 scale
-			volumePercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
 			pitchPercent = (uint8_t) 100 * (((float)adc_x_val) / 4096);
-			// change volume based on x
-			volumeChange(volumePercent);
 			// change pitch based on y
 			pitchChange(pitchPercent);
 			joystick_read = false;
