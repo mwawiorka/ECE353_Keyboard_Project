@@ -4,6 +4,7 @@
 #include "score.h"
 
 // Character bitmaps for Elephant 13pt
+// Used to display numbers for scoring
 const uint8_t numbersBitmaps[] = 
 {
 		// @0 '0' (13 pixels wide)
