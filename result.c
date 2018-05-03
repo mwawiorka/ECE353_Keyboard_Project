@@ -3,6 +3,7 @@
 // 
 #include "result.h"
 
+// Bitmap for displaying score after playing
 const uint8_t resultBitmap[] =
 {
 	0x00, 0x60, 0x00, 0x00, 0x60, 0x00, //          ##                      ##        
